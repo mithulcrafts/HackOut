@@ -3,7 +3,9 @@ import { createClient } from "./supabase/server";
 import { consumerActionSchema } from "./consumer";
 
 export async function readConsumer() {
-  const db=await createClient(); const {data:{user}}=await db.auth.getUser();
+  let db;
+  try { db=await createClient(); } catch { return NextResponse.json({error:"Consumer storage is not configured for this environment."},{status:503}); }
+  const {data:{user}}=await db.auth.getUser();
   if(!user) return NextResponse.json({error:"Sign in to use your consumer demo."},{status:401});
   const {data,error}=await db.rpc("consumer_snapshot");
   if(error) return NextResponse.json({error:"Consumer storage is unavailable. Please retry."},{status:503});
@@ -12,7 +14,9 @@ export async function readConsumer() {
 export async function actConsumer(request:Request, allowed?:string[]) {
   const parsed=consumerActionSchema.safeParse(await request.json().catch(()=>null));
   if(!parsed.success || (allowed && !allowed.includes(parsed.data.command))) return NextResponse.json({error:"Invalid consumer action."},{status:400});
-  const db=await createClient(); const {data:{user}}=await db.auth.getUser();
+  let db;
+  try { db=await createClient(); } catch { return NextResponse.json({error:"Consumer storage is not configured for this environment."},{status:503}); }
+  const {data:{user}}=await db.auth.getUser();
   if(!user) return NextResponse.json({error:"Sign in to continue."},{status:401});
   const v=parsed.data;
   const {data,error}=await db.rpc("consumer_action",{command:v.command,target_offer:v.offerId??null,expected_version:v.version??null,start_slot:v.startSlot??null,outcome:v.outcome??null});

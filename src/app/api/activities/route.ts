@@ -10,7 +10,8 @@ function databaseFailure(code: string) {
 }
 
 export async function GET() {
-  const supabase = await createClient();
+  let supabase;
+  try { supabase = await createClient(); } catch { return NextResponse.json({ error: "Activity storage is not configured for this environment." }, { status: 503 }); }
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Sign in to view activities." }, { status: 401 });
   const { data, error } = await supabase.from("activities").select("id,type,name,earliest_start,latest_finish,duration_minutes,interruptible,status,created_at").eq("owner_id", user.id).order("created_at", { ascending: false });
@@ -19,7 +20,8 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const supabase = await createClient();
+  let supabase;
+  try { supabase = await createClient(); } catch { return NextResponse.json({ error: "Activity storage is not configured for this environment." }, { status: 503 }); }
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Sign in to save an activity." }, { status: 401 });
   const parsed = activityInputSchema.safeParse(await request.json().catch(() => null));

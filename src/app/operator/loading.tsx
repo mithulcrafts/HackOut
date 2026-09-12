@@ -1,0 +1,1 @@
+export default function OperatorLoading() { return <main className="shell"><div className="container" style={{ paddingTop: 48 }}><div className="card" aria-busy="true"><div className="eyebrow">Loading operator view</div><h1>Preparing the simulated day…</h1><p className="muted">Reading the deterministic 48-slot scenario.</p></div></div></main>; }

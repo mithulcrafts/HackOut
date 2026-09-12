@@ -77,7 +77,7 @@ export function recordSimulatedOffer(scenario: Scenario, offerId: string, outcom
   const activity = scenario.activities.find((item) => item.id === offer?.activityId);
   const schedule = scenario.schedules.find((item) => item.activityId === activity?.id && item.accepted);
   if (!offer || !activity || !schedule) throw new Error("Accept this activity before recording evidence.");
-  if (scenario.readings.some((item) => item.eventId === offer.eventId && item.activityId === activity.id)) throw new Error("Readings already exist. Verify them or reset the demo to test another outcome.");
+  if (scenario.readings.some((item) => item.eventId === offer.eventId && item.activityId === activity.id)) throw new Error("Readings already exist. Verify them or reset the scenario to test another outcome.");
   const readings = simulateReadings(scenario.date, offer.eventId, activity, schedule, outcome);
   return { ...scenario, readings: [...scenario.readings, ...readings], simulatedOfferIds: [...new Set([...(scenario.simulatedOfferIds ?? []), offerId])] };
 }

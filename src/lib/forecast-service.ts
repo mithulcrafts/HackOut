@@ -28,7 +28,7 @@ export async function resolveForecast(scenario: Scenario, options: ForecastOptio
       metadata.provider = "Open-Meteo";
       metadata.location = locationName;
       metadata.weatherDate = date;
-      metadata.message = "Weather-based installation estimate. Hourly radiation repeated across half-hours; wind and temperature interpolated. Demand and activities remain simulated. Current-day weather is a what-if input for the demo day.";
+      metadata.message = "Weather-based installation estimate. Hourly radiation repeated across half-hours; wind and temperature interpolated. Demand and activities remain simulated. Current-day weather is a what-if input for this scenario.";
     } catch {
       metadata.fallback = true;
       metadata.message = "Weather unavailable or incomplete. Showing the unchanged synthetic forecast; retry when the connection is available.";

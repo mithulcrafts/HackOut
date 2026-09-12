@@ -91,7 +91,7 @@ async function demoAction(request: Request, allowed?: string[]) {
   const session = await getOrCreateDemoSession();
   let scenario = getScenario(session);
   const v = parsed.data;
-  if (v.command === "reset" || v.command === "seed") return demoResponse(session, resetScenario(session), "Shared demo scenario reset to its three sample activities.");
+  if (v.command === "reset" || v.command === "seed") return demoResponse(session, resetScenario(session), "Scenario reset to its three sample activities.");
   const offer = scenario.offers.find((item) => item.id === v.offerId);
   if (!offer || v.version !== offer.version) return NextResponse.json({ error: "Offer changed. Refresh before trying again." }, { status: 409 });
   try {
@@ -119,7 +119,7 @@ export async function readConsumer(request?: Request) {
   let db;
   try { db=await createClient(); } catch { return NextResponse.json({error:"Consumer storage is not configured for this environment."},{status:503}); }
   const {data:{user}}=await db.auth.getUser();
-  if(!user) return NextResponse.json({error:"Sign in to use your consumer demo."},{status:401});
+  if(!user) return NextResponse.json({error:"Sign in to use your consumer account."},{status:401});
   const {data,error}=await db.rpc("consumer_snapshot");
   if(error) return NextResponse.json({error:"Consumer storage is unavailable. Please retry."},{status:503});
   let session: string;

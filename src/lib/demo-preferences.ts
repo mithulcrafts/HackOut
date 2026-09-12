@@ -9,7 +9,7 @@ export type DemoProfile = {
 };
 
 const defaultProfile: DemoProfile = {
-  display_name: "Demo Participant",
+  display_name: "Energy Participant",
   location: "Gandhinagar, Gujarat",
   user_type: "EV owner",
   device_status: "simulation",

@@ -1,12 +1,15 @@
 import type { Metadata } from "next";
+import { DM_Sans, Space_Grotesk } from "next/font/google";
 import "./globals.css";
-import { Geist } from "next/font/google";
-import { cn } from "@/lib/utils";
 
-const geist = Geist({subsets:['latin'],variable:'--font-sans'});
+const display = Space_Grotesk({ variable: "--font-display", subsets: ["latin"] });
+const body = DM_Sans({ variable: "--font-body", subsets: ["latin"] });
 
-export const metadata: Metadata = { title: "Grid Pulse | Smart Demand Response", description: "A mobile-first demand-response demo with simulated energy data." };
+export const metadata: Metadata = {
+  title: "VidyutSutra | Renewable flexibility",
+  description: "Use electricity at a better time and earn verified participation points.",
+};
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="en" className={cn("dark", "font-sans", geist.variable)}><body>{children}</body></html>;
+  return <html lang="en" className={`${display.variable} ${body.variable}`}><body>{children}</body></html>;
 }

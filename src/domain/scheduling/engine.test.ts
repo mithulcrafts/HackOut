@@ -46,4 +46,18 @@ describe("demand response energy engine", () => {
     expect(result.schedules).toHaveLength(0);
     expect(result.unscheduled[0].reason).toContain("No safe window");
   });
+
+  it("includes fixed demand when enforcing the site power limit", () => {
+    const forecast = createSyntheticForecast().map((slot) => ({ ...slot, fixedDemandKW: 17.5 }));
+    const activity = { ...createDemoScenario().activities[0], earliestStart: 20, latestFinish: 24, durationSlots: 2, requiredEnergyKWh: 4, powerLimitKW: 4 };
+    const result = createSchedule([activity], forecast, 18);
+    expect(result.schedules).toHaveLength(0);
+    expect(result.unscheduled[0].reason).toContain("No safe window");
+  });
+
+  it("keeps battery dispatch bounded for an invalid efficiency input", () => {
+    const scenario = createDemoScenario();
+    const dispatch = dispatchBattery(scenario.forecast, scenario.schedules, { ...scenario.battery, roundTripEfficiency: 0 });
+    expect(dispatch.every((item) => item.stateOfChargeKWh >= 0 && item.stateOfChargeKWh <= scenario.battery.capacityKWh)).toBe(true);
+  });
 });

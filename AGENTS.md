@@ -15,7 +15,8 @@
 - Recheck the actual application state on future tasks; paths and scripts in the plan are targets until implemented.
 
 ## Product constraints
-- Build only Smart Demand-Response & Load-Shifting System; forecasting supports it. Do not invent a project name.
+- Build only Smart Demand-Response & Load-Shifting System; forecasting supports it.
+- Project name: VidyutSutra. Use it consistently in application metadata and user-facing copy; do not invent alternate names.
 - Follow the mobile-first Next.js/TypeScript + Supabase plan; keep scheduling, verification and rewards server-side.
 - Label simulated readings, generation estimates and illustrative rewards; never invent partner access, real payments or forecast accuracy.
 - Preserve accept/modify/skip/override and no penalties for unsuitable offers.

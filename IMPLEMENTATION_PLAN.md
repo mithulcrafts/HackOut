@@ -2,7 +2,7 @@
 
 ## 1. Product scope
 
-Build one web application specifically for mobile for the selected problem statement: **Smart Demand-Response & Load-Shifting System**.
+Build one mobile-first web application called **VidyutSutra** for the selected problem statement: **Smart Demand-Response & Load-Shifting System**.
 
 The single product flow is:
 

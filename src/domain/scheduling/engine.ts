@@ -37,7 +37,10 @@ export function createSchedule(activities: Activity[], forecast: ForecastSlot[],
     }
     let best: { start: number; score: number } | undefined;
     for (let start = activity.earliestStart; start + activity.durationSlots <= activity.latestFinish; start++) {
-      const legal = Array.from({ length: activity.durationSlots }, (_, offset) => start + offset).every((slot) => (occupied.get(slot) ?? 0) + powerKW <= sitePowerLimitKW);
+    const legal = Array.from({ length: activity.durationSlots }, (_, offset) => start + offset).every((slot) => {
+      const fixedDemandKW = forecast[slot]?.fixedDemandKW ?? Number.POSITIVE_INFINITY;
+      return fixedDemandKW + (occupied.get(slot) ?? 0) + powerKW <= sitePowerLimitKW;
+    });
       if (!legal) continue;
       const score = candidateScore(activity, start, forecast);
       if (!best || score > best.score) best = { start, score };
@@ -54,17 +57,18 @@ export function createSchedule(activities: Activity[], forecast: ForecastSlot[],
 
 export function dispatchBattery(forecast: ForecastSlot[], schedules: ScheduleEntry[], initial: BatteryState): BatteryDispatch[] {
   let state = Math.min(initial.capacityKWh, Math.max(0, initial.currentKWh));
+  const efficiency = Math.min(1, Math.max(0.01, initial.roundTripEfficiency));
   return forecast.map((slot) => {
     const flexible = schedules.filter((s) => s.accepted && slot.index >= s.startSlot && slot.index < s.endSlot).reduce((sum, s) => sum + s.powerKW, 0);
     const balance = slot.renewableKW - slot.fixedDemandKW - flexible;
     if (balance > 0 && state < initial.capacityKWh) {
       const power = Math.min(initial.maxChargeKW, balance, (initial.capacityKWh - state) / 0.5);
-      state = Math.min(initial.capacityKWh, state + power * 0.5 * Math.sqrt(initial.roundTripEfficiency));
+      state = Math.min(initial.capacityKWh, state + power * 0.5 * Math.sqrt(efficiency));
       return { slot: slot.index, mode: "absorb", powerKW: Number(power.toFixed(2)), stateOfChargeKWh: Number(state.toFixed(2)), action: "charge" as const };
     }
     if (balance < 0 && state > 0) {
       const power = Math.min(initial.maxDischargeKW, -balance, state / 0.5);
-      state = Math.max(0, state - power * 0.5 / Math.sqrt(initial.roundTripEfficiency));
+      state = Math.max(0, state - power * 0.5 / Math.sqrt(efficiency));
       return { slot: slot.index, mode: "protect", powerKW: Number(power.toFixed(2)), stateOfChargeKWh: Number(state.toFixed(2)), action: "discharge" as const };
     }
     return { slot: slot.index, mode: balance >= 0 ? "absorb" : "protect", powerKW: 0, stateOfChargeKWh: Number(state.toFixed(2)), action: "idle" as const };

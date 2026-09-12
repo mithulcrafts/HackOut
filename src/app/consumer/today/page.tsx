@@ -1,0 +1,5 @@
+import Link from "next/link";
+
+export default function ConsumerTodayPage() {
+  return <main className="app-shell"><section className="hero-panel"><div className="eyebrow">VidyutSutra <span>• SIMULATED DEMO</span></div><div className="hero-copy"><p className="kicker">TODAY</p><h1>Your energy, better timed.</h1><p className="hero-description">This demo dashboard will connect to your activities and verified rewards.</p></div><div className="pulse-card"><div className="pulse-ring"><strong>72%</strong><small>renewable</small></div><div><span className="status-pill absorb">ABSORB MODE</span><h2>Good time to use energy</h2><p>Solar availability is rising until 3:00 PM.</p></div></div></section><section className="content-section"><article className="offer-card"><div className="offer-copy"><span className="section-label">NEXT STEP</span><h3>Add a flexible activity</h3><p>Connect an EV, heater or industrial task to receive a personalised time window.</p></div><Link className="primary-button" href="/">View home</Link></article></section></main>;
+}

@@ -16,10 +16,10 @@ export default function Home() {
       <section className="content-section">
         <div className="section-heading"><div><span className="section-label">TODAY</span><h2>Your flexible activities</h2></div><button className="icon-button" aria-label="Add activity"><Sparkles size={18} /></button></div>
         <div className="activity-list">{activities.map(({ label, detail, icon: Icon, tone }) => <article className="activity-card" key={label}><div className={`activity-icon ${tone}`}><Icon size={20} /></div><div className="activity-copy"><strong>{label}</strong><span>{detail}</span></div><ArrowRight className="muted-icon" size={18} /></article>)}</div>
-        <article className="offer-card"><div className="offer-mark"><Zap size={20} /></div><div className="offer-copy"><span className="section-label">RECOMMENDED WINDOW</span><h3>Move EV charging to 1:00–3:00 PM</h3><p>Finish before your deadline and earn <strong>+120 points</strong>.</p></div><button className="primary-button">Review offer <ArrowRight size={16} /></button></article>
+        <article className="offer-card"><div className="offer-mark"><Zap size={20} /></div><div className="offer-copy"><span className="section-label">RECOMMENDED WINDOW</span><h3>Move EV charging to 1:00–3:00 PM</h3><p>Finish before your deadline and earn <strong>+120 points</strong>.</p></div><a className="primary-button" href="/login">Review offer <ArrowRight size={16} /></a></article>
       </section>
       <section className="trust-strip"><ShieldCheck size={18} /><span>Rewards unlock after a simulated meter reading verifies your activity.</span></section>
-      <nav className="bottom-nav" aria-label="Primary navigation"><a className="active" href="#today"><CircleGauge size={19} /><span>Today</span></a><a href="#activities"><Zap size={19} /><span>Activities</span></a><a href="#rewards"><Sparkles size={19} /><span>Rewards</span></a></nav>
+      <nav className="bottom-nav" aria-label="Primary navigation"><a className="active" href="#today"><CircleGauge size={19} /><span>Today</span></a><a href="/consumer/activities"><Zap size={19} /><span>Activities</span></a><a href="/login"><Sparkles size={19} /><span>Rewards</span></a></nav>
     </main>
   );
 }

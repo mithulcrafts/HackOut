@@ -17,3 +17,16 @@ export function scheduleSavedActivities(activities: SavedActivity[], scenario: S
   const unscheduled = result.unscheduled.map(item => ({activityId:item.activityId,startSlot:null as number|null,endSlot:null as number|null,powerKW:0,source:item.reason}));
   return [...scheduled, ...unscheduled];
 }
+
+/** Add a saved activity to the browser's shared simulation session. */
+export function addActivityToScenario(activity: SavedActivity, scenario: Scenario): Scenario {
+  const domain = activityToDomain(activity);
+  const withoutActivity = scenario.activities.filter((item) => item.id !== domain.id);
+  const withoutSchedule = scenario.schedules.filter((item) => item.activityId !== domain.id);
+  const [scheduled] = scheduleSavedActivities([activity], { ...scenario, activities: withoutActivity, schedules: withoutSchedule });
+  return {
+    ...scenario,
+    activities: [...withoutActivity, domain],
+    schedules: scheduled?.startSlot === null ? withoutSchedule : [...withoutSchedule, { activityId: domain.id, startSlot: scheduled.startSlot, endSlot: scheduled.endSlot!, powerKW: scheduled.powerKW, accepted: false, version: 1, data_source: "simulation" }],
+  };
+}

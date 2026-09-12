@@ -1,0 +1,14 @@
+"use client";
+import { useEffect, useState } from "react";
+import Link from "next/link";
+type Scenario={activities:{id:string;name:string;status:string;requiredEnergyKWh:number}[];offers:{id:string;activityId:string;decision:string;status:string;rewardEstimate:number}[];readings:{activityId:string;cumulativeKWh:number;timestamp:string}[];schedules:{activityId:string;accepted:boolean;powerKW:number}[]};
+export function OperatorInsights({kind}:{kind:"verification"|"rewards"|"reports"}){
+ const [data,setData]=useState<Scenario|null>(null); const [error,setError]=useState("");
+ useEffect(()=>{fetch("/api/scenarios").then(async r=>{const b=await r.json();if(!r.ok)throw new Error(b.error);setData(b.scenario)}).catch(e=>setError(e.message));},[]);
+ if(error)return <p className="card">Unable to load simulation: {error}</p>;
+ if(!data)return <p className="card">Loading simulated evidence…</p>;
+ const accepted=data.offers.filter(o=>["accept","modify"].includes(o.decision)); const verified=data.activities.filter(a=>a.status==="verified");
+ if(kind==="verification") return <section className="card"><h2>Evidence queue</h2>{data.activities.map(a=><div className="metric-row" key={a.id}><span><strong>{a.name}</strong><small>{a.requiredEnergyKWh} kWh required</small></span><b>{a.status}</b></div>)}<p className="muted">Readings: {data.readings.length} simulated · verified activities: {verified.length}. Missing evidence remains pending.</p></section>;
+ if(kind==="rewards") {const verifiedKwh=verified.reduce((s,a)=>s+a.requiredEnergyKWh,0);const paid=verifiedKwh*1.5;return <section className="card"><h2>Illustrative reward budget</h2><div className="grid metric-grid"><div><div className="label">Accepted</div><div className="metric">{accepted.length}</div></div><div><div className="label">Verified</div><div className="metric violet">{verified.length}</div></div><div><div className="label">Eligible energy</div><div className="metric amber">{verifiedKwh.toFixed(1)} kWh</div></div><div><div className="label">Illustrative total</div><div className="metric">₹{paid.toFixed(2)}</div></div></div><p className="muted">Rewards use the approved-rate prototype assumption and are not real payments.</p></section>}
+ return <section className="card"><h2>Event funnel</h2><div className="grid metric-grid"><div><div className="label">Recommended</div><div className="metric">{data.offers.length}</div></div><div><div className="label">Accepted</div><div className="metric amber">{accepted.length}</div></div><div><div className="label">Readings</div><div className="metric violet">{data.readings.length}</div></div><div><div className="label">Verified</div><div className="metric">{verified.length}</div></div></div><p className="muted">Only verified evidence contributes to reliable flexibility reporting.</p><Link className="source" href="/operator/simulation">Open what-if simulation →</Link></section>;
+}

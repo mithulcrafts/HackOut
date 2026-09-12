@@ -68,9 +68,11 @@ export async function POST(request: Request) {
   const powerKW = v.powerKW ?? activityDefaults[v.type as keyof typeof activityDefaults]?.power ?? 1;
   const { data, error } = await supabase.from("activities").insert({ owner_id: user.id, type: v.type, name: v.name, earliest_start: v.earliestStart, latest_finish: v.latestFinish, baseline_start:v.earliestStart, duration_minutes: Math.round(v.durationHours * 60), interruptible: v.interruptible, power_kw:powerKW, required_kwh:powerKW*v.durationHours, status: "recommended" }).select("id,type,name,earliest_start,latest_finish,duration_minutes,interruptible,status,created_at,power_kw,required_kwh").single();
   if (error) return databaseFailure(error.code);
+  const { data: offer, error: offerError } = await supabase.rpc("create_consumer_offer", { target_activity: data.id });
+  if (offerError) return databaseFailure(offerError.code);
   const session = `operator-${user.id}`;
   const scenario = addActivityToScenario(data, getScenario(session));
   setScenario(session, scenario);
-  return NextResponse.json({ activity: data, schedulePreview: scheduleSavedActivities([data], scenario) }, { status: 201 });
+  return NextResponse.json({ activity: data, offer, schedulePreview: scheduleSavedActivities([data], scenario) }, { status: 201 });
 }
 

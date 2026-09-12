@@ -306,9 +306,9 @@ The primary product is a **mobile web app/PWA**. Design at 390px width first, th
 
 ### Visual direction
 
-Use the aesthetic stance **“Grid Pulse”**: calm dark graphite surfaces, warm solar amber for Absorb, electric blue for planned/accepted actions and violet for verified outcomes. The memorable anchor is a circular **day pulse** that shows the current slot, renewable level and the next recommended action. This is a product identity, not decoration.
+Use the aesthetic stance **“VidyutSutra”**: calm dark graphite surfaces, warm solar amber for Absorb, electric blue for planned/accepted actions and violet for verified outcomes. The memorable anchor is a circular **day pulse** that shows the current slot, renewable level and the next recommended action. This is a product identity, not decoration.
 
-Use `next/font/google` with **Space Grotesk** for headings and **DM Sans** for body text. Define all colours, radii, shadows, spacing and chart colours as CSS variables in `app/globals.css`; do not scatter hex values through components. Use shadcn/ui primitives (`Button`, `Card`, `Badge`, `Dialog`, `Drawer`, `Sheet`, `Tabs`, `Progress`, `Tooltip`, `Table`, `Skeleton`, `Toast`) as the accessible base, then style them to the Grid Pulse system. Use Lucide icons with labels or tooltips; never use emoji as UI icons.
+Use `next/font/google` with **Space Grotesk** for headings and **DM Sans** for body text. Define all colours, radii, shadows, spacing and chart colours as CSS variables in `app/globals.css`; do not scatter hex values through components. Use shadcn/ui primitives (`Button`, `Card`, `Badge`, `Dialog`, `Drawer`, `Sheet`, `Tabs`, `Progress`, `Tooltip`, `Table`, `Skeleton`, `Toast`) as the accessible base, then style them to the VidyutSutra system. Use Lucide icons with labels or tooltips; never use emoji as UI icons.
 
 ### Mobile navigation and screen hierarchy
 
@@ -369,7 +369,7 @@ Implement loading, empty, error, offline and no-valid-window states for every ro
 
 Use the official shadcn CLI to add only the components listed above; components are copied into `components/ui` so their code is reviewable. Use official Tailwind responsive utilities, Lucide React for icons and Recharts for visualisations. Use Supabase’s Next.js SSR client with cookie sessions and RLS. Use Open-Meteo only through `ForecastProvider` and cache its response in `forecast_slots`.
 
-Before adding a package, record its purpose in this section and confirm it works with the current Next.js/React versions. Prefer native browser APIs and existing components. Do not add UI template kits, arbitrary “20th.dev” snippets or copied code that conflicts with the Grid Pulse system. External assets must have a licence suitable for a hackathon and must not be required for the offline demo.
+Before adding a package, record its purpose in this section and confirm it works with the current Next.js/React versions. Prefer native browser APIs and existing components. Do not add UI template kits, arbitrary “20th.dev” snippets or copied code that conflicts with the VidyutSutra system. External assets must have a licence suitable for a hackathon and must not be required for the offline demo.
 
 ## 13. Agent execution protocol
 

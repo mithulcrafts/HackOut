@@ -60,4 +60,18 @@ describe("demand response energy engine", () => {
     const dispatch = dispatchBattery(scenario.forecast, scenario.schedules, { ...scenario.battery, roundTripEfficiency: 0 });
     expect(dispatch.every((item) => item.stateOfChargeKWh >= 0 && item.stateOfChargeKWh <= scenario.battery.capacityKWh)).toBe(true);
   });
+
+  it("rejects an activity with invalid duration constraints", () => {
+    const scenario = createDemoScenario();
+    const result = createSchedule([{ ...scenario.activities[0], durationSlots: 0 }], scenario.forecast, scenario.sitePowerLimitKW);
+    expect(result.schedules).toHaveLength(0);
+    expect(result.unscheduled[0].reason).toContain("timing or energy constraints");
+  });
+
+  it("rejects an activity with negative energy", () => {
+    const scenario = createDemoScenario();
+    const result = createSchedule([{ ...scenario.activities[0], requiredEnergyKWh: -1 }], scenario.forecast, scenario.sitePowerLimitKW);
+    expect(result.schedules).toHaveLength(0);
+    expect(result.unscheduled[0].reason).toContain("timing or energy constraints");
+  });
 });

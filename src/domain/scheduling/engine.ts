@@ -21,6 +21,7 @@ function candidateScore(activity: Activity, start: number, forecast: ForecastSlo
 }
 
 export function activityPowerKW(activity: Activity): number {
+  if (activity.durationSlots <= 0 || activity.requiredEnergyKWh < 0) return 0;
   return Number((activity.requiredEnergyKWh / (activity.durationSlots * 0.5)).toFixed(2));
 }
 
@@ -30,6 +31,10 @@ export function createSchedule(activities: Activity[], forecast: ForecastSlot[],
   const unscheduled: { activityId: string; reason: string }[] = [];
   const ordered = [...activities].sort((a, b) => (a.latestFinish - a.earliestStart) - (b.latestFinish - b.earliestStart));
   for (const activity of ordered) {
+    if (activity.durationSlots <= 0 || activity.requiredEnergyKWh < 0 || activity.earliestStart < 0 || activity.latestFinish > forecast.length || activity.latestFinish <= activity.earliestStart) {
+      unscheduled.push({ activityId: activity.id, reason: "Activity timing or energy constraints are invalid." });
+      continue;
+    }
     const powerKW = activityPowerKW(activity);
     if (powerKW > activity.powerLimitKW) {
       unscheduled.push({ activityId: activity.id, reason: "Required energy exceeds the equipment power limit." });

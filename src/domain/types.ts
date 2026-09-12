@@ -79,6 +79,7 @@ export interface Offer {
   renewableAlignment: number;
   rewardEstimate: number;
   decision: OfferDecision;
+  version: number;
   status: ActivityStatus;
   expiresAt: string;
   data_source: DataSource;

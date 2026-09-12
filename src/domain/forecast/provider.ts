@@ -20,6 +20,9 @@ export class SyntheticForecastProvider implements ForecastProvider {
     void location;
     void start;
     void end;
-    return createSyntheticForecast().map((slot) => ({ start: slot.start, end: slot.end, solarRadiation: slot.solarKW, windSpeed: slot.windKW, data_source: "simulation" }));
+    return createSyntheticForecast().map((slot) => {
+      const windSpeed = Number((6 + 1.8 * Math.sin(slot.index * 0.55) + 0.7 * Math.cos(slot.index * 0.21)).toFixed(2));
+      return { start: slot.start, end: slot.end, solarRadiation: slot.solarKW, windSpeed, data_source: "simulation" as const };
+    });
   }
 }

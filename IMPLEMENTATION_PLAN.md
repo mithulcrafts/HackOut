@@ -110,6 +110,8 @@ The operator simulation panel edits renewable multiplier, demand multiplier, acc
 
 Provide preset cards for EV, water heater and industrial process. A user supplies the practical requirement and deadline; presets provide default power, duration and energy. Store values through `POST /api/activities` after Zod validation.
 
+Current activity storage setup: apply `supabase/migrations/20260912135906_create_consumer_activities.sql`, then `20260912141231_allow_custom_activity_types.sql` to the Supabase project used by `.env.local`. Pushing application code does not apply these SQL files. The Custom card uses the same timing fields and allows a user-defined activity name. Save and reload are authenticated; energy/power presets and scheduling remain subsequent work. These two SQL files were applied through the dashboard to the development project on 12 September 2026; dashboard execution does not record CLI migration history, so reconcile that history before adopting `supabase db push` on this existing project.
+
 Do not require users to know exact consumption in the MVP. Later readings can update typical energy and duration. A bill upload may estimate a monthly baseline, but cannot verify a particular time slot.
 
 ### 5.4 Weather and renewable estimation

@@ -5,6 +5,8 @@ description: Inspect, plan and implement focused changes in this HackOut reposit
 
 # Repository understanding and implementation
 
+Before changing files, use the mandatory remote-sync preflight in [git-collaboration](../git-collaboration/SKILL.md) to check whether GitHub advanced. If it cannot be completed, do not pretend the local checkout is current; continue only with unaffected read-only planning or report the block.
+
 ## Discover before editing
 
 1. Read root instructions and relevant sections of [the implementation plan](../../IMPLEMENTATION_PLAN.md). Identify the active phase and observable acceptance criteria.

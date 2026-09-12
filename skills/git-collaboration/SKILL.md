@@ -5,6 +5,19 @@ description: Coordinate two-person HackOut development, inspect Git state, resol
 
 # Git and shared work
 
+## Mandatory remote-sync preflight
+
+Run this preflight **before implementing a new task and again before pushing**:
+
+1. Inspect `git status --short`, current branch and uncommitted/staged diffs. Preserve a user's or teammate's work; never pull over it blindly.
+2. Fetch the tracked remote and compare `HEAD` with its upstream. Check the remote log and changed paths when it has advanced.
+3. If the worktree is clean and the remote advanced, rebase the local branch onto the upstream (or use the repository's established pull strategy) before editing or pushing.
+4. If local work is uncommitted, do not auto-stash, reset or discard it. Use a separate worktree/checkpoint or coordinate a safe commit before synchronizing.
+5. If the remote has diverged, inspect both histories and affected files before resolving. Preserve valid changes from both sides; never use blind ours/theirs resolution.
+6. After synchronization and conflict resolution, inspect the diff and run the relevant checks before implementation continues or a push is attempted.
+
+If fetch, pull, rebase or push requires network/elevated approval, request it with the concrete repository action. Do not claim GitHub was checked when the operation was blocked. A push is not complete until the remote result is verified.
+
 ## Inspect and update safely
 
 - Inspect `git status --short`, current branch, `git branch -vv`, remotes, relevant history and staged diff. This repository used `main` tracking `origin/main` when inspected; verify rather than hard-code it.

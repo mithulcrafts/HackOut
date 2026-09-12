@@ -2,6 +2,7 @@
 
 ## Start here
 - Inspect Git status, tracked/untracked files and applicable instructions before editing.
+- Before implementing or pushing, follow `skills/git-collaboration/SKILL.md` remote-sync preflight; check GitHub for newer commits first.
 - Read [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) for product and architecture decisions.
 - Read [skills/README.md](skills/README.md), then only the skills relevant to the task.
 - Repository-local skills are opened through these links; do not assume `skills/` is automatically registered by every coding tool.

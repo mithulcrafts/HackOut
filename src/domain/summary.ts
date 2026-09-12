@@ -9,5 +9,6 @@ export function summarizeScenario(scenario: Scenario): ScenarioSummary {
     return slot.fixedDemandKW + flexible;
   }));
   const acceptedKW = scenario.schedules.filter((schedule) => schedule.accepted).reduce((sum, schedule) => sum + schedule.powerKW, 0);
-  return { absorbSlots: balances.filter((item) => item.mode === "absorb").length, protectSlots: balances.filter((item) => item.mode === "protect").length, baselinePeakKW: Number(baselinePeakKW.toFixed(1)), scheduledPeakKW: Number(scheduledPeakKW.toFixed(1)), acceptedKW, verifiedKW: 0, unresolvedGapKW: 0, data_source: "simulation" };
+  const verifiedKW = scenario.schedules.filter((schedule) => schedule.accepted && scenario.activities.some((activity) => activity.id === schedule.activityId && activity.status === "verified")).reduce((sum, schedule) => sum + schedule.powerKW, 0);
+  return { absorbSlots: balances.filter((item) => item.mode === "absorb").length, protectSlots: balances.filter((item) => item.mode === "protect").length, baselinePeakKW: Number(baselinePeakKW.toFixed(1)), scheduledPeakKW: Number(scheduledPeakKW.toFixed(1)), acceptedKW, verifiedKW: Number(verifiedKW.toFixed(2)), unresolvedGapKW: 0, data_source: "simulation" };
 }

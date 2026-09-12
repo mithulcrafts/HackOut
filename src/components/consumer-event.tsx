@@ -43,7 +43,7 @@ export function ConsumerEvent({ inbox=false }: { inbox?: boolean }) {
       <details className="evidence-readings"><summary>Restart this demo</summary><p>Deletes this demo’s readings, verification and reward. Other saved activities remain. Use this to test a different outcome.</p>{resetOpen?<div className="offer-actions"><button className="secondary-button" disabled={busy} onClick={()=>action("reset")}>Confirm demo reset</button><button className="secondary-button" onClick={()=>setResetOpen(false)}>Cancel</button></div>:<button className="secondary-button" onClick={()=>setResetOpen(true)}>Reset demo…</button>}</details>
     </article>}
     {o&&filter!=="all"&&filter!==o.decision&&<p className="notice">No {filter} offers.</p>}
-    {!inbox&&state&&<><RenewableOutlook slots={state.presentation.outlook}/><ScheduleChart rows={state.presentation.schedule}/></>}
+    {!inbox&&state&&<><RenewableOutlook slots={state.presentation.outlook} source={state.presentation.outlookSource}/><ScheduleChart rows={state.presentation.schedule}/></>}
     {state&&<article className="schedule-card"><div className="section-heading"><h2>Notifications</h2><button className="secondary-button" disabled={busy||!state.notifications.some(n=>!n.read_at)} onClick={markRead}>Mark all read</button></div>{state.notifications.length?state.notifications.map(n=><div className="notification-item" key={n.id}><p>{!n.read_at&&<strong>New · </strong>}{n.message}</p><small>{new Date(n.created_at).toLocaleString("en-IN",{timeZone:"Asia/Kolkata"})} IST</small></div>):<p>No notifications yet.</p>}</article>}
   </>;
 }

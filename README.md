@@ -34,7 +34,7 @@ pnpm build
 - `/consumer/offers`, `/consumer/rewards` and `/consumer/profile` provide the consumer navigation and trust/reward views.
 - Consumer writes are bounded server-side by Supabase RPCs and row-level security; rewards remain illustrative simulation values.
 
-The operator demo adapter is session-scoped memory only. Restarting the server clears it. The consumer flow is Supabase-backed when configured, but its current fixture offer is intentionally separate from the operator memory scenario until the shared activity/event contract is integrated. Neither path represents real meter credentials, real grid control or real payments. Every forecast, reading and reward is labelled according to the workflow contract.
+The operator simulation remains session-scoped memory for the hackathon playback, while the consumer offer, readings, verification and reward ledger are Supabase-backed. Consumer decisions and verified EV results are mirrored into the same browser demo session so the operator summary can reflect the consumer journey. Custom activities expose a scheduler preview and remain pending event-offer integration. Neither path represents real meter credentials, real grid control or real payments. Every forecast, reading and reward is labelled according to the workflow contract.
 
 The product workflow remains:
 

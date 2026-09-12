@@ -19,7 +19,7 @@ Before changing files, use the mandatory remote-sync preflight in [git-collabora
 - Before creating any component, hook, function, helper, API, service or config, search its behavior, existing names and imports with `rg -n`. Record the useful matches or the fact that none exists in the working plan.
 - Reuse or extend the existing implementation whenever it satisfies the requirement. Never create a parallel helper or provider merely because its name differs from the proposed name.
 - Distinguish similar-looking code with different semantics. Consolidate only when duplication is in scope and callers can be preserved; do not launch repository-wide cleanup during a narrow fix.
-- Planned shared types/fixtures, domain modules and chart components are reuse targets, not claims that files exist today. Locate the actual paths first.
+- Planned shared types/fixtures, domain modules and chart components are reuse targets, not claims that files exist today. Locate the actual paths first. Use the approved project name **VidyutSutra**; do not invent alternate names.
 
 ## Execute a focused change
 

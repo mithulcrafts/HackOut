@@ -334,6 +334,8 @@ Before adding a package, record its purpose in this section and confirm it works
 
 ## 13. Agent execution protocol
 
+Repository-local workflow instructions are discovered through [AGENTS.md](AGENTS.md) and [skills/README.md](skills/README.md). Read only the applicable skill files. This plan remains the product/architecture source of truth; the skills define execution and verification discipline. At the time these instructions were created, the repository contained documentation only, so the application paths and commands below were implementation targets rather than working code or runnable scripts. Recheck the repository state on subsequent tasks.
+
 Every Codex session starts by reading `AGENTS.md`, this plan and the current Git status. The agent states the feature it is implementing, reads the relevant existing files and makes the smallest coherent change. It must not redesign the schema, rename API fields or replace the visual system without updating this document first.
 
 ### Definition of done for a feature

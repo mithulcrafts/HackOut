@@ -37,10 +37,10 @@ export function createSchedule(activities: Activity[], forecast: ForecastSlot[],
     }
     let best: { start: number; score: number } | undefined;
     for (let start = activity.earliestStart; start + activity.durationSlots <= activity.latestFinish; start++) {
-    const legal = Array.from({ length: activity.durationSlots }, (_, offset) => start + offset).every((slot) => {
-      const fixedDemandKW = forecast[slot]?.fixedDemandKW ?? Number.POSITIVE_INFINITY;
-      return fixedDemandKW + (occupied.get(slot) ?? 0) + powerKW <= sitePowerLimitKW;
-    });
+      const legal = Array.from({ length: activity.durationSlots }, (_, offset) => start + offset).every((slot) => {
+        const fixedDemandKW = forecast[slot]?.fixedDemandKW ?? Number.POSITIVE_INFINITY;
+        return fixedDemandKW + (occupied.get(slot) ?? 0) + powerKW <= sitePowerLimitKW;
+      });
       if (!legal) continue;
       const score = candidateScore(activity, start, forecast);
       if (!best || score > best.score) best = { start, score };

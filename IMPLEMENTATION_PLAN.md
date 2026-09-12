@@ -54,7 +54,7 @@ BatteryState, LeaderboardRow
 
 Every `Activity` has `type`, `requiredEnergyKWh`, `earliestStart`, `latestFinish`, `powerLimitKW`, `durationSlots`, `interruptible`, `baselineStart` and `status`.
 
-Statuses are `recommended`, `accepted`, `skipped`, `completed`, `verified` and `failed`.
+Activity statuses are `recommended`, `accepted`, `skipped`, `completed`, `verified` and `failed`. Verification outcomes are separate: `pending`, `verified`, `partial`, `failed` or `needs_review`; missing evidence stays pending.
 
 ## 4. Supabase data model
 
@@ -205,7 +205,7 @@ The operator dashboard contains:
 - **Battery chart:** state of charge over time with charge/discharge markers.
 - **Gap and budget cards:** unresolved kW gap, verified shifted kWh and reward budget used.
 
-Use colour and text together: green for Absorb, amber for Protect, blue for accepted and purple for verified. Add tooltips with exact slot time and units. Include an accessible table below each important chart so the demo remains understandable without relying on colour.
+Use colour and text together: amber for Absorb, coral for Protect, blue for accepted and violet for verified. Add tooltips with exact slot time and units. Include an accessible table below each important chart so the demo remains understandable without relying on colour.
 
 Consumer pages: Today, Activities, Offers, Rewards/Impact and Profile. The activity detail page contains schedule and verification evidence. Operator pages use the charts above, Supabase subscriptions for refreshes and a reset button for the deterministic demo. The operator event page contains event creation, participant status, verification, budget and report export.
 
@@ -270,7 +270,7 @@ Use Teammate A’s seeded scenario and schedule response; do not reimplement for
 
 ### Conflict rules
 
-- A owns `src/domain` and `app/(operator)`; B owns `app/(consumer)` and trust/reward routes.
+- A owns `src/domain/forecast`, `src/domain/scheduling`, scenario/event orchestration and `src/app/operator`; B owns `src/domain/verification`, `src/domain/rewards`, `src/app/consumer` and trust/reward routes. Public URL segments are real `operator`/`consumer` directories, not route-group names.
 - Shared types, migrations and UI primitives require a message before editing.
 - Never move business rules into page components to bypass an unfinished API.
 - Keep commits small and named by feature; merge one track at a time.
@@ -371,7 +371,7 @@ Before adding a package, record its purpose in this section and confirm it works
 
 ## 13. Agent execution protocol
 
-Repository-local workflow instructions are discovered through [AGENTS.md](AGENTS.md) and [skills/README.md](skills/README.md). Read only the applicable skill files. This plan remains the product/architecture source of truth; the skills define execution and verification discipline. At the time these instructions were created, the repository contained documentation only, so the application paths and commands below were implementation targets rather than working code or runnable scripts. Recheck the repository state on subsequent tasks.
+Repository-local workflow instructions are discovered through [AGENTS.md](AGENTS.md) and [skills/README.md](skills/README.md). Read only the applicable skill files. This plan remains the product/architecture source of truth; the skills define execution and verification discipline. The current branch contains the Next.js/TypeScript scaffold, deterministic Teammate A energy engine, operator routes and APIs, and focused Vitest tests. Supabase, consumer, verification and rewards paths remain integration targets. Recheck the repository state on subsequent tasks.
 
 Every Codex session starts by reading `AGENTS.md`, this plan and the current Git status. The agent states the feature it is implementing, reads the relevant existing files and makes the smallest coherent change. It must not redesign the schema, rename API fields or replace the visual system without updating this document first.
 
@@ -398,4 +398,15 @@ Use one branch per teammate and feature-named commits. Pull/rebase before integr
 6. If stretch features are complete, override a second offer, show recovery, then run Protect mode and What-if preview.
 
 The demo must remain understandable if real weather, hardware and payment services are unavailable.
+
+## 15. Teammate A scaffold contract (12 September 2026)
+
+- This branch establishes the first shared types, fixtures and UI primitives; no prior implementation exists to reuse. B should consume these contracts for consumer and trust features.
+- The initial runnable A prototype uses a clearly labelled, per-browser demo session in one local Node.js process. It works without weather, Supabase or payment network calls after installation/build; browser access to the local server is still required. Restarting the server clears demo sessions. It is not a production persistence/auth replacement or an offline-installable PWA.
+- Supabase Auth, durable persistence, RLS and migrations remain joint Phase 0 integration work; no shared database has been created or modified in this task. Consumer authentication and verification/reward processing remain B-owned.
+- All initial values use the contract field `data_source`. Slots are indices 0–47, with end-exclusive boundaries up to 48, representing slot-average kW in Asia/Kolkata. Activity energy is `requiredEnergyKWh`; scheduled power is energy divided by duration, capped by the device limit.
+- The frozen baseline includes each flexible activity once. Recommended schedules are projections; only accepted reservations alter committed demand. An unchanged recommended window has zero eligible shift/reward. All operator capacity summaries state whether they are peak or event-average kW.
+- Demo operator actions are scoped to an opaque HTTP-only session cookie and same-origin requests. Production use of the memory adapter requires explicit `DEMO_MODE=true`; no real accounts, meter credentials or payments are accepted.
+- Initial dependency purposes: Next.js/React for the single app; Tailwind and shadcn/Radix for accessible primitives; Lucide for icons; Recharts for typed operator charts; Zod for request boundaries; sonner for action feedback; Vitest for domain/API behavior. pnpm is the repository package manager. Motion, theming and date libraries are added only when used.
+- Stable A-track fixture endpoints are `GET /api/forecast` (forecast plus balance classification), `GET /api/scenarios` (scenario, balance, battery and summary), `POST /api/scenarios/seed`, `POST /api/scenarios/reset`, `POST /api/scenarios/preview`, and `POST /api/scenarios/playback`. Event lifecycle endpoints are listed in section 5.2 and operate on the same session-scoped demo scenario.
 

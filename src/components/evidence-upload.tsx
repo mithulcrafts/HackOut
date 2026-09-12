@@ -45,7 +45,7 @@ export function EvidenceUpload() {
     <ConsumerFeedback loading={consumer.loading} error={consumer.error} retry={consumer.refresh} />
     <article className="schedule-card evidence-upload-card">
       <div className="section-heading"><div><span className="section-label">OPTIONAL REVIEW</span><h2>Upload a meter or charger export</h2></div><UploadCloud size={22} color="var(--amber)" /></div>
-      <p>Have no hardware connected to the demo? Upload a daily interval CSV from a smart meter or charger to see whether it proves the accepted shift. The upload is treated as untrusted evidence and cannot issue a reward.</p>
+      <p>Have no hardware connected? Upload a daily interval CSV from a smart meter or charger to see whether it proves the accepted shift. The upload is treated as untrusted evidence and cannot issue a reward.</p>
       {!acceptedOffers.length ? <div className="notice"><p>Accept an offer first. Evidence is only meaningful against a frozen, accepted window.</p></div> : <form className="activity-form" onSubmit={submit}>
         <label>Accepted activity<select required value={offerId} onChange={(event) => setOfferId(event.target.value)}><option value="">Choose an activity</option>{acceptedOffers.map((offer) => <option key={offer.id} value={offer.id}>{offer.name}</option>)}</select></label>
         <label>CSV interval export<input required type="file" accept=".csv,text/csv" onChange={(event) => setFile(event.target.files?.[0] ?? null)} /></label>

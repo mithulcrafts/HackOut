@@ -20,7 +20,7 @@ export default function Home() {
         <div className="activity-list">{activities.map(({ label, detail, icon: Icon, tone }) => <article className="activity-card" key={label}><div className={`activity-icon ${tone}`}><Icon size={20} /></div><div className="activity-copy"><strong>{label}</strong><span>{detail}</span></div><ArrowRight className="muted-icon" size={18} /></article>)}</div>
         <article className="offer-card" id="how-it-works"><div className="offer-mark"><Zap size={20} /></div><div className="offer-copy"><span className="section-label">HOW IT WORKS</span><h3>Plan → accept → verify → reward</h3><p>Move an existing flexible task into a useful window. Points and illustrative rewards unlock only after the simulated meter evidence passes verification.</p></div><Link className="primary-button" href="/consumer/today?demo=1">Review demo offer <ArrowRight size={16} /></Link></article>
       </section>
-      <section className="trust-strip"><ShieldCheck size={18} /><span>Rewards unlock after your completed activity is verified.</span></section>
+      <section className="trust-strip"><ShieldCheck size={18} /><span>Rewards unlock after a simulated meter reading verifies your activity.</span></section>
       <nav className="bottom-nav" aria-label="Primary navigation"><a className="active" href="#today"><CircleGauge size={19} /><span>Today</span></a><Link href="/consumer/activities"><Zap size={19} /><span>Activities</span></Link><Link href="/consumer/rewards"><Sparkles size={19} /><span>Rewards</span></Link></nav>
     </main>
   );

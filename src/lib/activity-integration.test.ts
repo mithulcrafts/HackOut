@@ -11,11 +11,11 @@ describe("saved activity scheduling bridge", () => {
     expect(activityToDomain({ ...saved, power_kw: -1 })).toBeNull();
     expect(activityToDomain({ ...saved, required_kwh: 100 })).toBeNull();
   });
-  it("retains other loads and does not promise custom event eligibility", () => {
+  it("retains other loads and links custom activities to an eligible event", () => {
     const scenario = createDemoScenario();
     const updated = addActivityToScenario(saved, scenario);
     expect(updated.activities).toHaveLength(scenario.activities.length + 1);
-    expect(updated.offers.some((entry) => entry.activityId === saved.id)).toBe(false);
+    expect(updated.offers.some((entry) => entry.activityId === saved.id)).toBe(true);
     const blocked = scheduleSavedActivities([saved], { ...scenario, sitePowerLimitKW: 0 });
     expect(blocked[0].startSlot).toBeNull();
     expect(blocked[0].reason).toContain("No safe window");

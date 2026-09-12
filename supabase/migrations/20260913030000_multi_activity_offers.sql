@@ -1,11 +1,12 @@
 -- Allow each saved activity to have its own demand-response offer.
-drop index if exists public.offers_owner_id_fixture_key_key;
-alter table public.offers drop constraint if exists offers_owner_id_fixture_key_key;
+-- Keep UNIQUE(owner_id, fixture_key): ON CONFLICT below needs it.
+-- Each activity uses a distinct consumer-<activity UUID> key, so the
+-- constraint permits multiple activities while keeping offer retries safe.
 
 create or replace function public.create_consumer_offer(target_activity uuid)
 returns jsonb language plpgsql security definer set search_path='' as $$
 declare u uuid:=auth.uid(); a public.activities; s integer; f integer; d integer; proposed integer;
-declare o public.offers;
+o public.offers;
 begin
  if u is null then raise exception 'Sign in required' using errcode='42501'; end if;
  select * into a from public.activities where id=target_activity and owner_id=u;

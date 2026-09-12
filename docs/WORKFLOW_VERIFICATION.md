@@ -21,7 +21,7 @@ The shared scenario is created by `src/lib/demo-store.ts`. A browser receives an
 | Enter demo | `/login` links to `/consumer/today?demo=1`; `/src/proxy.ts` establishes demo access. |
 | Today recommendation | `/consumer/today` renders `ConsumerEvent` from `/api/consumer`. The seeded event contains EV, water-heating and industrial offers. |
 | Offer inbox | `/consumer/offers` uses the same event surface and can select an offer by `offerId`. |
-| Add activity | `/consumer/activities` posts timing constraints to `/api/activities`; demo scheduling uses the domain scheduler and active event window. |
+| Add activity | `/consumer/activities` posts timing and power constraints to `/api/activities`; demo scheduling uses the domain scheduler and active event window. Custom loads receive an independent preview; programme eligibility is explicit. |
 | Decision | `/api/consumer` accepts `accept`, `modify`, `skip` and `override` through `src/domain/events.ts`. Modify remains pending until accepted; skip and override have no penalty. |
 | Activity detail | `/consumer/activities/[id]` reads `/api/activities/[id]` and shows requirements, schedule, evidence and reward state. |
 | Simulated evidence | `/api/consumer` uses `src/domain/playback.ts`; operator `/operator/simulation` can replay success, partial, late, rebound or missing readings. |
@@ -39,7 +39,7 @@ The shared scenario is created by `src/lib/demo-store.ts`. A browser receives an
 | Verification | `/operator/verification` links to labelled playback and displays the evidence queue. |
 | Rewards | `/operator/rewards` sums the simulated reward ledger and shows the illustrative event budget. |
 | Reports | `/operator/reports` uses the event funnel: recommended → accepted → completed → verified. |
-| Simulation | `/operator/simulation` provides what-if forecast/demand preview and deterministic playback controls. |
+| Simulation | `/operator/simulation` provides deterministic or Open-Meteo weather previews plus accepted-activity playback. The source, weather date and unchanged commitments remain visible. |
 | Settings | `/operator/settings` shows deterministic site and battery limits. |
 
 ## Numerical and truthfulness rules
@@ -55,9 +55,9 @@ The shared scenario is created by `src/lib/demo-store.ts`. A browser receives an
 
 The unified consumer/operator state is an in-memory map scoped to one demo cookie and one Node.js process. It is suitable for a repeatable hackathon demonstration, but it is not durable storage and is not shared across serverless workers or multiple app instances. Restarting the server resets the scenario.
 
-The authenticated Supabase consumer path remains separately implemented through consumer RPCs and migrations. It should not be described as sharing the demo scenario until the shared production activity/event contract, RLS policies and settlement integration are deployed. Real AMI/device readings, live weather-provider forecasting, ML training, device control, external push/SMS notifications and cash/bill-credit settlement remain production integration work. The app is currently browser-based; installable/offline PWA support remains a follow-on task. No cloud migration was applied during this verification pass.
+Authenticated Supabase consumer RPCs remain authoritative for account data. Their returned state is mirrored into an isolated operator simulation keyed by the verified account ID; this does not grant operator access or set a demo cookie. Reset clears only that offer's projected evidence and rewards. This is not a durable, programme-wide operator database. Real AMI/device readings, trained generation models, device control, external push/SMS notifications and cash/bill-credit settlement remain production integration work. The app is browser-based; installable/offline PWA support remains a follow-on task. No cloud migration was applied during this verification pass.
 
-The forecast boundary now includes pure, unit-labelled solar and wind estimators in `src/domain/forecast/provider.ts`: irradiance is accepted in W/m² and wind speed in m/s, with configured capacity and cut-in/rated/cut-out limits. `SyntheticForecastProvider` emits plausible simulated weather inputs. A live weather provider and trained forecast model are still pending integrations.
+The canonical forecast conversion is `src/domain/forecast/estimation.ts`, with weather contracts in `provider.ts`: irradiance is W/m² and wind speed is m/s. An optional Open-Meteo provider uses approximate profile city lookup; it does not request device GPS. Its current-day estimates are explicitly a what-if input alongside the fixed simulation day, not measured plant output. Missing city/data or service errors retain synthetic data with fallback metadata. Provider conversion and fallback are tested with injected weather responses; a trained generation model remains future work.
 
 ## Verification command
 
@@ -70,4 +70,4 @@ pnpm test:smoke
 
 The smoke script resets the demo before and after its scenarios, checks all consumer/operator routes, exercises all three sample activities, verifies idempotent reward release, and covers partial, late, rebound and missing-reading recovery.
 
-Verification on 13 September 2026: lint, TypeScript and production build passed. The HTTP smoke suite passed 94 checks against both the development server and the production build, including a published Protect event, preview isolation, notifications and separate browser-session wallets. Browser testing exercised accept → simulated readings → verification → reward wallet release. These checks establish the tested prototype behavior; they do not certify a live utility deployment or guarantee absence of every possible defect.
+Verification on 13 September 2026: lint, TypeScript, 70 automated tests and the production build passed. The final merged production build passed 99 HTTP checks, including a published Protect event, custom activity previews, invalid weather inputs, preview isolation, notifications and separate browser-session wallets. A live weather request in this environment used the labelled fallback because outbound provider requests failed; injected-provider tests cover successful conversion and metadata. Browser testing exercised accept → simulated readings → verification → reward wallet release. These checks establish the tested prototype behavior; they do not certify a live utility deployment or guarantee absence of every possible defect.

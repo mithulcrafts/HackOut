@@ -8,6 +8,7 @@ import { decideOffer } from "@/domain/events";
 import { recordSimulatedOffer, verifyScenarioOffer } from "@/domain/playback";
 import type { Scenario } from "@/domain/types";
 import { getDemoNotificationReads } from "./demo-preferences";
+import { syncConsumerToOperator } from "./consumer-integration";
 
 export function demoNotifications(session: string, scenario: Scenario): ConsumerState["notifications"] {
   const reads = getDemoNotificationReads(session);
@@ -103,6 +104,15 @@ async function demoAction(request: Request, allowed?: string[]) {
     return demoResponse(session, scenario, v.command === "skip" || v.command === "override" ? "Your choice is saved. No penalty." : "Shared activity state updated.", offer.id);
   } catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to update this activity." }, { status: 409 }); }
 }
+
+function authenticatedView(state: ConsumerState, session: string) {
+  const scenario = getScenario(session);
+  const outlook = scenario.forecast.map((slot) => ({ slot: slot.index, solarKW: slot.solarKW, windKW: slot.windKW, renewableKW: slot.renewableKW }));
+  const offer = scenario.offers.find((item) => item.activityId === "activity-ev") ?? scenario.offers[0];
+  const event = offer ? scenario.events.find((item) => item.id === offer.eventId) : undefined;
+  return consumerView(state, outlook, "Shared scenario simulation · solar + wind", { allowedStarts: [26, 27, 28], rewardRate: event?.rewardRatePerKWh ?? 1.5, rewardCap: offer?.rewardEstimate ?? 12, objective: event?.objective ?? "absorb" });
+}
+
 export async function readConsumer(request?: Request) {
   const demo = await readDemoSession();
   if (demo && (process.env.NODE_ENV !== "production" || process.env.DEMO_MODE === "true")) return demoResponse(demo, getScenario(demo), undefined, request ? new URL(request.url).searchParams.get("offerId") ?? undefined : undefined);
@@ -112,7 +122,9 @@ export async function readConsumer(request?: Request) {
   if(!user) return NextResponse.json({error:"Sign in to use your consumer demo."},{status:401});
   const {data,error}=await db.rpc("consumer_snapshot");
   if(error) return NextResponse.json({error:"Consumer storage is unavailable. Please retry."},{status:503});
-  return NextResponse.json(consumerView(data));
+  let session: string;
+  try { session = await syncConsumerToOperator("load", data, user.id); } catch { return NextResponse.json({ error: "Consumer data was saved, but the operator projection is temporarily unavailable." }, { status: 503 }); }
+  return NextResponse.json(authenticatedView(data, session));
 }
 export async function actConsumer(request:Request, allowed?:string[]) {
   if ((await readDemoSession()) && (process.env.NODE_ENV !== "production" || process.env.DEMO_MODE === "true")) return demoAction(request, allowed);
@@ -128,6 +140,8 @@ export async function actConsumer(request:Request, allowed?:string[]) {
     const safeCodes=["P0001","P0002","40001"];
     return NextResponse.json({error:safeCodes.includes(error.code)?error.message:"Consumer storage is unavailable. Please retry."},{status:safeCodes.includes(error.code)?409:503});
   }
-  return NextResponse.json(consumerView(data));
+  let session: string;
+  try { session = await syncConsumerToOperator(v.command, data, user.id); } catch { return NextResponse.json({ error: "Your action was saved, but the operator projection is temporarily unavailable." }, { status: 503 }); }
+  return NextResponse.json(authenticatedView(data, session));
 }
 

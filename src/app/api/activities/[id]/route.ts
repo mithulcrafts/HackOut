@@ -13,7 +13,7 @@ function storageError(code: string) {
   return NextResponse.json({ error: failure.error }, { status: failure.status });
 }
 
-const demoTypes: Record<string, DomainActivityType> = { "EV charging": "ev", "Water heating": "water_heater", "Industrial process": "industrial_process" };
+const demoTypes: Record<string, DomainActivityType> = { "EV charging": "ev", "Water heating": "water_heater", "Industrial process": "industrial_process", "Custom": "custom" };
 const editSchema = z.object({
   type: z.string().trim().min(1).max(40), name: z.string().trim().min(1).max(80),
   earliestStart: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/), latestFinish: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
@@ -27,20 +27,11 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
   if (demo && (process.env.NODE_ENV !== "production" || process.env.DEMO_MODE === "true") && !z.string().uuid().safeParse(id).success) {
     const scenario = getScenario(demo); const activity = scenario.activities.find((item) => item.id === id);
     if (!activity) return NextResponse.json({ error: "Activity not found." }, { status: 404 });
-    const sourceOffer = scenario.offers.find((item) => item.activityId === id);
-    const view = demoState(demo, scenario, sourceOffer?.id);
-    const offer = sourceOffer ? (view.offer?.id === sourceOffer.id ? view.offer : {
-      id: sourceOffer.id, name: activity.name, version: sourceOffer.version,
-      decision: sourceOffer.decision === "accept" ? "accepted" : sourceOffer.decision === "skip" ? "skipped" : sourceOffer.decision === "override" ? "overridden" : "pending",
-      baseline_start: sourceOffer.originalStart, proposed_start: sourceOffer.proposedStart,
-      duration_slots: sourceOffer.proposedEnd - sourceOffer.proposedStart, deadline_slot: sourceOffer.deadline,
-      required_kwh: activity.requiredEnergyKWh, power_kw: activity.powerLimitKW,
-      simulation_run: false, completion_slot: null,
-    }) : null;
-    const readings = sourceOffer?.id === view.offer?.id ? view.readings : [];
-    const verification = sourceOffer?.id === view.offer?.id ? view.verification : null;
-    const rewards = sourceOffer?.id === view.offer?.id ? view.rewards : [];
-    return NextResponse.json({ activity: demoRecord(activity, scenario.date), offers: offer ? [{ offer: { ...offer, source: "simulation", version: offer.version, decision: offer.decision, completion_slot: offer.completion_slot }, readings, verification, rewards }] : [] });
+    const offers = scenario.offers.filter((item) => item.activityId === id).map((sourceOffer) => {
+      const view = demoState(demo, scenario, sourceOffer.id);
+      return { offer: { ...view.offer!, source: "simulation" }, readings: view.readings, verification: view.verification, rewards: view.rewards };
+    });
+    return NextResponse.json({ activity: demoRecord(activity, scenario.date), offers });
   }
   if (!z.string().uuid().safeParse(id).success) return NextResponse.json({ error: "Invalid activity link." }, { status: 400 });
   let db;

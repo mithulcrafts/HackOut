@@ -36,18 +36,19 @@ pnpm test:smoke
 - `/operator/overview` shows the simulated renewable/demand outlook, Absorb/Protect classification, read-only grid action recommendations, battery dispatch and an accessible selected-slot table.
 - `/operator/events` creates draft events and publishes eligible offers against a frozen baseline.
 - `/operator/simulation` changes renewable/demand multipliers in an in-memory preview, resets the seed and replays labelled simulated reading cases.
+- Its optional Open-Meteo preview uses the saved profile city, shows current weather dates and installation assumptions, and falls back to labelled synthetic data when weather is unavailable. It never rewrites accepted schedules.
 - `/operator/verification`, `/operator/rewards` and `/operator/reports` make evidence, illustrative budget and event-funnel states explicit. These operator summary pages are ready for the shared persistence integration.
 
 ## Current consumer flow
 
 - `/consumer/today` loads a renewable-aligned offer and supports accept, skip, simulated reading and verification.
-- `/consumer/activities` stores timing constraints for EV charging, water heating and industrial processes.
+- `/consumer/activities` stores timing constraints for EV charging, water heating, industrial processes and custom loads with explicit equipment power. Independent schedule previews are shown; custom tasks do not automatically become eligible for a programme reward.
 - `/consumer/offers`, `/consumer/rewards` and `/consumer/profile` provide the consumer navigation and trust/reward views.
 - Demo writes use the shared server-side domain engine. Authenticated consumer writes use Supabase RPCs and row-level security; rewards remain illustrative simulation values.
 
 See [workflow verification](docs/WORKFLOW_VERIFICATION.md) for implemented behavior, verification coverage and remaining deployment work.
 
-The demo adapter is session-scoped memory in one Node.js process. Consumer and operator demo routes use the same scenario, so a decision or verified reading is visible on both sides during a run. Restarting the server clears it; multiple serverless workers do not share this state. The authenticated Supabase consumer RPC path remains a separate production integration until the shared activity/event contract is deployed. Neither path represents real meter credentials, real grid control or real payments. Every forecast, reading and reward is labelled according to the workflow contract.
+The demo adapter is session-scoped memory in one Node.js process. Consumer and operator demo routes use the same scenario. Restarting the server clears it; multiple serverless workers do not share this state. Authenticated consumer records remain authoritative in Supabase and are mirrored into an account-scoped operator simulation without granting operator permissions or switching the user into demo mode. Saved activities receive constrained scheduling previews. A durable programme-wide operator/consumer store remains deployment work. Neither path represents real meter credentials, real grid control or real payments.
 
 The product workflow remains:
 

@@ -1,5 +1,5 @@
 export type DataSource = "simulation" | "weather_estimate" | "device_reading";
-export type ActivityType = "ev" | "water_heater" | "industrial_process";
+export type ActivityType = "ev" | "water_heater" | "industrial_process" | "custom";
 export type ActivityStatus = "recommended" | "accepted" | "skipped" | "completed" | "verified" | "failed";
 export type OfferDecision = "pending" | "accept" | "modify" | "skip" | "override";
 export type Mode = "absorb" | "protect";

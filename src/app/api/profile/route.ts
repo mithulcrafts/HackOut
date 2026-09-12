@@ -22,7 +22,7 @@ export async function GET() {
   const { data, error } = await db.from("profiles").select(columns).eq("id", user.id).maybeSingle();
   if (error) return NextResponse.json({ error: "Profile storage is not ready. Apply the profile migration." }, { status: 503 });
   return NextResponse.json({ email: user.email ?? "", profile: data ?? {
-    display_name: "", location: "Gandhinagar, Gujarat", user_type: "household", device_status: "simulation", leaderboard_opt_in: false, leaderboard_alias: "Participant",
+    display_name: "", location: "", user_type: "household", device_status: "simulation", leaderboard_opt_in: false, leaderboard_alias: "Participant",
   } });
 }
 

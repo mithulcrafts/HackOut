@@ -30,7 +30,7 @@ function verifiedResponseKW(scenario: Scenario) {
     const hours = activity ? activity.durationSlots * 0.5 : 0;
     return sum + (hours > 0 ? result.eligibleShiftedKWh / hours : 0);
   }, 0);
-  return scenario.activities.filter((activity) => activity.status === "verified").reduce((sum, activity) => sum + activityPowerKW(activity), 0);
+  return 0;
 }
 
 export function summarizeScenario(scenario: Scenario): ScenarioSummary {

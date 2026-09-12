@@ -30,7 +30,7 @@ Next.js App Router + TypeScript
 
 Next.js App Router route handlers in `app/api/**/route.ts` are the backend boundary. Shared business logic is in `src/domain`, so it can be tested without rendering a page. Supabase stores the shared state and provides authentication and realtime updates. Vercel hosts the application.
 
-Use `pnpm`, TypeScript strict mode, Zod for request validation, Recharts for graphs and Vitest for domain tests. Do not add a separate Python server, microservices, queue or optimisation package during the MVP.
+Use `pnpm`, TypeScript strict mode, Zod for request validation, Recharts for graphs and Vitest for domain tests. Use `shadcn/ui` components installed into the repository, Tailwind CSS, Lucide React icons, `next-themes` for dark mode and `date-fns` for slot formatting. Use `sonner` for action feedback and `framer-motion` only for the single dashboard entrance and offer-state transition. Do not add a separate Python server, microservices, queue or optimisation package during the MVP.
 
 ## 3. Fixed simulation contract
 
@@ -265,4 +265,100 @@ Phase 1 is accepted only when a seeded EV event can be accepted, rescheduled, su
 - Skipping or overriding an offer never penalises the user.
 - Report shifted energy and peak reduction separately; shifting is not energy saving.
 - Do not train or claim ML accuracy without matched historical generation records.
+
+## 10. Mobile-first product and visual specification
+
+The primary product is a **mobile web app/PWA**. Design at 390px width first, then expand to tablet and desktop operator layouts. Use Tailwind responsive breakpoints; every screen must work with one thumb, large tap targets (minimum 44px), safe-area padding, keyboard navigation and visible focus states. Do not create a separate native mobile application during the hackathon.
+
+### Visual direction
+
+Use the aesthetic stance **“Grid Pulse”**: calm dark graphite surfaces, warm solar amber for Absorb, electric blue for planned/accepted actions and violet for verified outcomes. The memorable anchor is a circular **day pulse** that shows the current slot, renewable level and the next recommended action. This is a product identity, not decoration.
+
+Use `next/font/google` with **Space Grotesk** for headings and **DM Sans** for body text. Define all colours, radii, shadows, spacing and chart colours as CSS variables in `app/globals.css`; do not scatter hex values through components. Use shadcn/ui primitives (`Button`, `Card`, `Badge`, `Dialog`, `Drawer`, `Sheet`, `Tabs`, `Progress`, `Tooltip`, `Table`, `Skeleton`, `Toast`) as the accessible base, then style them to the Grid Pulse system. Use Lucide icons with labels or tooltips; never use emoji as UI icons.
+
+### Mobile navigation and screen hierarchy
+
+Consumer navigation is a fixed bottom bar with **Today**, **Activities**, **Rewards** and **Profile**. The Today screen has, in order: day pulse, current Absorb/Protect state, one primary offer card, next deadline and a compact schedule. Details open in a bottom sheet rather than a desktop modal.
+
+Operator navigation is a compact top bar with **Overview**, **Flexibility**, **Simulation** and **Settings**. On mobile, charts are horizontally scrollable cards with a summary value first. On desktop, the same cards become a two-column grid.
+
+### Required visual components
+
+- `DayPulse`: SVG/CSS circular slot indicator with renewable level, mode and next action.
+- `OfferCard`: original time, proposed time, deadline, reward, source label and three decision actions.
+- `ScheduleTimeline`: accessible horizontal slot strip; selected activity opens a detail sheet.
+- `SupplyDemandChart`: Recharts `ComposedChart` with renewable area, demand line and Absorb/Protect bands.
+- `BeforeAfterChart`: Recharts grouped bars with baseline and scheduled demand.
+- `FlexibilityFunnel`: recommended → accepted → completed → verified values.
+- `BatteryChart`: state-of-charge area and charge/discharge markers.
+- `EvidenceReceipt`: baseline, accepted window, readings, eligible kWh and verification reason.
+- `MetricCard`, `StatusBadge`, `EmptyState`, `LoadingSkeleton` and `ErrorState`.
+
+Charts must have legends, units, tooltips and a text/table alternative. Use `ResponsiveContainer`; lazy-load the operator chart bundle if it is not visible. Avoid 3D charts, pie charts with many categories and animation that delays interaction.
+
+### Interaction and copy rules
+
+The first screen must answer: “What should I do now, and what do I get?” Use plain copy such as **“Move charging to 1–3 PM”**, **“Ready by 5 PM”** and **“Reward after verified reading.”** Every mutation has a pending state, success toast and recoverable error. Skip and override require no penalty language. Use `prefers-reduced-motion` and never rely on colour alone for mode or status.
+
+## 11. Complete application surface
+
+### Consumer routes
+
+```text
+/login                 authentication
+/consumer/today        day pulse, current offer and schedule
+/consumer/activities   list, add and edit activities
+/consumer/activities/[id] activity detail and evidence
+/consumer/rewards      points, badges, ledger states and leaderboard
+/consumer/profile      location, preferences and device simulator
+```
+
+### Operator routes
+
+```text
+/operator/overview     supply-demand, mode and peak metrics
+/operator/flexibility  accepted/verified capacity and unresolved gaps
+/operator/simulation   controls, playback and reset
+/operator/settings     site limits, source capacities and reward budget
+```
+
+### Cross-cutting states
+
+Implement loading, empty, error, offline and no-valid-window states for every route. Add a global error boundary and route-level `loading.tsx`. Provide a demo-mode banner showing whether values are simulated, weather-estimated or device-supplied.
+
+## 12. External resources and dependency rules
+
+Use the official shadcn CLI to add only the components listed above; components are copied into `components/ui` so their code is reviewable. Use official Tailwind responsive utilities, Lucide React for icons and Recharts for visualisations. Use Supabase’s Next.js SSR client with cookie sessions and RLS. Use Open-Meteo only through `ForecastProvider` and cache its response in `forecast_slots`.
+
+Before adding a package, record its purpose in this section and confirm it works with the current Next.js/React versions. Prefer native browser APIs and existing components. Do not add UI template kits, arbitrary “20th.dev” snippets or copied code that conflicts with the Grid Pulse system. External assets must have a licence suitable for a hackathon and must not be required for the offline demo.
+
+## 13. Agent execution protocol
+
+Every Codex session starts by reading `AGENTS.md`, this plan and the current Git status. The agent states the feature it is implementing, reads the relevant existing files and makes the smallest coherent change. It must not redesign the schema, rename API fields or replace the visual system without updating this document first.
+
+### Definition of done for a feature
+
+1. The feature works on a 390px viewport and desktop where applicable.
+2. Loading, empty, error and success states exist.
+3. Server mutations validate input with Zod and enforce role/access checks.
+4. Domain rules have focused Vitest tests.
+5. Charts have units, tooltips and a text alternative.
+6. Simulation labels and truthfulness rules are preserved.
+7. `pnpm lint`, `pnpm typecheck`, relevant tests and `pnpm build` pass.
+
+### Integration discipline
+
+Use one branch per teammate and feature-named commits. Pull/rebase before integration. Never force-push or reset shared history. A change to `src/domain/types.ts`, migrations, API examples, design tokens or shared UI primitives requires a short written note in the commit and an update to the relevant section of this plan. When an external API is unavailable, retain the provider interface and deterministic fixture; never block the rest of the application.
+
+## 14. Final demo script
+
+1. Open the mobile consumer Today screen and show the day pulse in Absorb mode.
+2. Show an EV offer with original and proposed schedule, deadline and points/reward.
+3. Accept the offer and show the schedule update.
+4. Advance the simulator to generate readings; show the evidence receipt and verified points.
+5. Override a second offer; show recovery and the operator’s unresolved-gap metric.
+6. Open the operator dashboard and show supply-demand, baseline-versus-scheduled demand, flexibility funnel, peak reduction and battery chart.
+7. Change renewable availability or reward rate in What-if; show the preview changing without mutating accepted records.
+
+The demo must remain understandable if real weather, hardware and payment services are unavailable.
 

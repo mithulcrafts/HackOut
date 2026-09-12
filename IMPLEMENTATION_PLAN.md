@@ -225,15 +225,13 @@ Add `Advance 30 minutes`. It generates the next simulated meter readings, runs v
 
 ## 6. Delivery phases
 
-**Phase 0:** scaffold, migration, shared types, fixtures, auth and README.
+The hackathon delivery is intentionally limited to two phases. The application should feel like one usable product; seeded values are an implementation fallback and must not appear as a separate “demo mode” in the main consumer journey.
 
-**Phase 1 (must-have):** deterministic 48-slot simulation, one seeded Absorb event, EV offer accept/skip, schedule, meter simulator, verification, points/reward ledger and a minimal consumer/operator summary. This is the minimum complete demo.
+**Phase 1 — Product foundation (complete):** authentication, profiles, activities, seeded renewable-aligned recommendations, scheduling, accept/modify/skip/override, server-side verification using controlled readings, points/reward ledger, notifications and consumer/operator summaries.
 
-**Phase 2 (strong stretch):** Protect event, Open-Meteo provider, renewable weather estimates, battery recommendation and recovery after opt-out.
+**Phase 2 — Demo-ready product finish (active):** remove simulator-oriented controls from the primary experience; make the end-to-end activity journey reliable; connect custom activities to offers and rewards; make operator metrics reflect the consumer journey; present clean mobile and operator dashboards. Weather-powered forecasting, ML, hardware readings and payment rails are later extensions after the demo flow is stable.
 
-**Phase 3 (polish/stretch):** what-if preview, playback, evidence receipt, leaderboard, event reports and visual polish.
-
-**Phase 4 (post-hackathon):** historical generation model, real device adapters, approved payments and utility integrations only if reliable data or hardware is available.
+Production integrations are deliberately outside the hackathon scope: real charger/meter adapters, historical ML training, utility control and approved payment settlement will be added only when reliable data and approvals exist.
 
 ## 7. Parallel work division
 

@@ -316,7 +316,7 @@ The primary product is a **mobile web app/PWA**. Design at 390px width first, th
 
 ### Visual direction
 
-Use the aesthetic stance **“VidyutSutra”**: calm dark graphite surfaces, warm solar amber for Absorb, electric blue for planned/accepted actions and violet for verified outcomes. The memorable anchor is a circular **day pulse** that shows the current slot, renewable level and the next recommended action. This is a product identity, not decoration.
+Use the aesthetic stance **“Gridline Daylight”**: a warm off-white canvas, white surfaces, graphite text and teal utility actions. Use solar amber for Absorb moments, coral for Protect conditions, blue for planned or accepted actions and violet for verified outcomes. Keep the interface calm and government-ready with solid surfaces, quiet 1px borders, modest shadows and a single amber energy accent; avoid glass, neon, gradients and decorative 3D effects. The memorable anchor is a circular **day pulse** that shows the current slot, renewable level and the next recommended action. This is a product identity, not decoration.
 
 Use `next/font/google` with **Space Grotesk** for headings and **DM Sans** for body text. Define all colours, radii, shadows, spacing and chart colours as CSS variables in `app/globals.css`; do not scatter hex values through components. Use shadcn/ui primitives (`Button`, `Card`, `Badge`, `Dialog`, `Drawer`, `Sheet`, `Tabs`, `Progress`, `Tooltip`, `Table`, `Skeleton`, `Toast`) as the accessible base, then style them to the VidyutSutra system. Use Lucide icons with labels or tooltips; never use emoji as UI icons.
 

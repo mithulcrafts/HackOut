@@ -231,6 +231,10 @@ The hackathon delivery is intentionally limited to two phases. The application s
 
 **Phase 2 — Demo-ready product finish (active):** remove simulator-oriented controls from the primary experience; make the end-to-end activity journey reliable; connect custom activities to offers and rewards; make operator metrics reflect the consumer journey; present clean mobile and operator dashboards. Weather-powered forecasting, ML, hardware readings and payment rails are later extensions after the demo flow is stable.
 
+### Multilingual accessibility (Phase 2)
+
+Store each user's preferred Indic language (`en-IN`, `gu-IN`, `hi-IN`, `mr-IN`, `ta-IN`, `te-IN` or `bn-IN`). Sarvam is accessed only from server routes using `SARVAM_API_KEY`; the browser never receives the key. Use translation for user-authored activity text and programme copy, and text-to-speech for offers and notifications. If Sarvam is unavailable, retain the original English text and use the browser speech capability where supported. Never block activity scheduling or rewards on language services.
+
 Production integrations are deliberately outside the hackathon scope: real charger/meter adapters, historical ML training, utility control and approved payment settlement will be added only when reliable data and approvals exist.
 
 ## 7. Parallel work division

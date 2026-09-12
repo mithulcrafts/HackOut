@@ -5,6 +5,7 @@ export type DemoProfile = {
   device_status: "simulation";
   leaderboard_opt_in: boolean;
   leaderboard_alias: string;
+  preferred_language: "en-IN" | "gu-IN" | "hi-IN" | "mr-IN" | "ta-IN" | "te-IN" | "bn-IN";
 };
 
 const defaultProfile: DemoProfile = {
@@ -14,6 +15,7 @@ const defaultProfile: DemoProfile = {
   device_status: "simulation",
   leaderboard_opt_in: false,
   leaderboard_alias: "Participant",
+  preferred_language: "en-IN",
 };
 
 // This is a per-browser demo store, not a production account database. Keeping

@@ -62,4 +62,13 @@ export class OpenMeteoForecastProvider implements ForecastProvider {
     if (!response.ok) throw new Error(`Weather provider returned ${response.status}.`);
     return mapOpenMeteoDay(await response.json(), start, end);
   }
+
+  async geocode(locationName: string): Promise<ForecastLocation> {
+    const url = new URL("https://geocoding-api.open-meteo.com/v1/search");
+    url.search = new URLSearchParams({ name: locationName, count: "1", language: "en", format: "json" }).toString();
+    const response = await this.request(url, { next: { revalidate: 86400 }, signal: AbortSignal.timeout(8000) });
+    if (!response.ok) throw new Error(`Location lookup returned ${response.status}.`);
+    const body = z.object({ results: z.array(z.object({ latitude: z.number(), longitude: z.number() })).min(1) }).parse(await response.json());
+    return body.results[0];
+  }
 }

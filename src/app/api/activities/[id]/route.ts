@@ -37,3 +37,18 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
   }
   return NextResponse.json({ activity, offers });
 }
+
+export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
+  const { id } = await context.params;
+  if (!z.string().uuid().safeParse(id).success) return NextResponse.json({ error: "Invalid activity link." }, { status: 400 });
+  const db = await createClient();
+  const { data: { user } } = await db.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Sign in to update activities." }, { status: 401 });
+  const body = await request.json().catch(() => null);
+  const parsed = z.object({ type: z.string().trim().min(1).max(40), name: z.string().trim().min(1).max(80), earliestStart: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/), latestFinish: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/), durationHours: z.coerce.number().min(.5).max(12), interruptible: z.boolean(), powerKW: z.coerce.number().positive().max(500) }).strict().safeParse(body);
+  if (!parsed.success) return NextResponse.json({ error: "Check the activity timing and power limit." }, { status: 400 });
+  const v=parsed.data; const minutes=Math.round(v.durationHours*60);
+  const { data, error } = await db.rpc("edit_consumer_activity", { target_id:id, activity_data:{type:v.type,name:v.name,earliest_start:v.earliestStart,latest_finish:v.latestFinish,baseline_start:v.earliestStart,duration_minutes:minutes,interruptible:v.interruptible,power_kw:v.powerKW} });
+  if(error) return NextResponse.json({ error: error.code === "P0002" ? "Activity not found." : error.message.includes("linked offer") ? error.message : "Unable to update activity." }, { status: error.code === "P0002" ? 404 : 409 });
+  return NextResponse.json({ activity:data });
+}

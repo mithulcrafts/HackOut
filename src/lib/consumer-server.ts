@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import { createClient } from "./supabase/server";
 import { consumerActionSchema } from "./consumer";
+import { consumerView } from "./consumer-view";
 
 export async function readConsumer() {
   const db=await createClient(); const {data:{user}}=await db.auth.getUser();
   if(!user) return NextResponse.json({error:"Sign in to use your consumer demo."},{status:401});
   const {data,error}=await db.rpc("consumer_snapshot");
   if(error) return NextResponse.json({error:"Consumer storage is unavailable. Please retry."},{status:503});
-  return NextResponse.json(data);
+  return NextResponse.json(consumerView(data));
 }
 export async function actConsumer(request:Request, allowed?:string[]) {
   const parsed=consumerActionSchema.safeParse(await request.json().catch(()=>null));
@@ -20,5 +21,5 @@ export async function actConsumer(request:Request, allowed?:string[]) {
     const safeCodes=["P0001","P0002","40001"];
     return NextResponse.json({error:safeCodes.includes(error.code)?error.message:"Consumer storage is unavailable. Please retry."},{status:safeCodes.includes(error.code)?409:503});
   }
-  return NextResponse.json(data);
+  return NextResponse.json(consumerView(data));
 }

@@ -1,17 +1,13 @@
 import { NextResponse } from "next/server";
-import { createDemoScenario } from "@/domain/fixtures";
-import { getOrCreateDemoSession } from "@/lib/demo-cookie";
+import { getOrCreateDemoSession, setDemoCookie } from "@/lib/demo-cookie";
 import { getScenario } from "@/lib/demo-store";
-import { classifyBalance } from "@/domain/scheduling/engine";
+import { forecastOptionsSchema, resolveForecast } from "@/lib/forecast-service";
+import { previewForecast } from "@/domain/forecast/preview";
 import { z } from "zod";
-
-const previewSchema = z.object({ renewableMultiplier: z.number().min(0).max(3).default(1), demandMultiplier: z.number().min(0).max(3).default(1) });
-
+const previewSchema = forecastOptionsSchema.extend({ renewableMultiplier: z.number().min(0).max(3).default(1), demandMultiplier: z.number().min(0).max(3).default(1) });
 export async function POST(request: Request) {
-  const parsed = previewSchema.safeParse(await request.json().catch(() => ({})));
-  if (!parsed.success) return NextResponse.json({ error: "Multipliers must be numbers between 0 and 3." }, { status: 400 });
-  const { renewableMultiplier, demandMultiplier } = parsed.data;
-  const base = getScenario(await getOrCreateDemoSession()) ?? createDemoScenario();
-  const forecast = base.forecast.map((slot) => ({ ...slot, solarKW: slot.solarKW * renewableMultiplier, windKW: slot.windKW * renewableMultiplier, renewableKW: slot.renewableKW * renewableMultiplier, fixedDemandKW: slot.fixedDemandKW * demandMultiplier }));
-  return NextResponse.json({ forecast, balances: classifyBalance(forecast, base.schedules, base.sitePowerLimitKW), data_source: "simulation", mutatedAcceptedData: false });
+  const parsed = previewSchema.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) return NextResponse.json({ error: "Choose a valid source, capacities (0–1000 kW) and multipliers (0–3)." }, { status: 400 });
+  const session = await getOrCreateDemoSession(); const scenario = getScenario(session); const result = await resolveForecast(scenario, parsed.data);
+  const response = NextResponse.json({ ...result, ...previewForecast(scenario, result.forecast, parsed.data.renewableMultiplier, parsed.data.demandMultiplier) }, { headers: { "Cache-Control": "private, no-store" } }); setDemoCookie(response, session); return response;
 }

@@ -6,6 +6,9 @@ export interface WeatherSlot {
   end: string;
   solarRadiation: number;
   windSpeed: number;
+  temperatureC: number;
+  cloudCoverPercent: number;
+  windDirectionDegrees: number;
   data_source: DataSource;
 }
 
@@ -22,7 +25,7 @@ export class SyntheticForecastProvider implements ForecastProvider {
     void end;
     return createSyntheticForecast().map((slot) => {
       const windSpeed = Number((6 + 1.8 * Math.sin(slot.index * 0.55) + 0.7 * Math.cos(slot.index * 0.21)).toFixed(2));
-      return { start: slot.start, end: slot.end, solarRadiation: slot.solarKW, windSpeed, data_source: "simulation" as const };
+      return { start: slot.start, end: slot.end, solarRadiation: slot.solarKW * 100, windSpeed, temperatureC: 25, cloudCoverPercent: 0, windDirectionDegrees: 180, data_source: "simulation" as const };
     });
   }
 }

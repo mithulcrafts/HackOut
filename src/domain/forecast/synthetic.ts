@@ -39,9 +39,10 @@ export function createSyntheticForecast(): ForecastSlot[] {
   });
 }
 
-export function estimateSolarKWh(panelCapacityKW: number, radiationKWhPerM2: number, efficiency: number, lossFactor: number): number {
-  if (panelCapacityKW < 0 || radiationKWhPerM2 < 0 || efficiency < 0 || lossFactor < 0) return 0;
-  return Number((panelCapacityKW * radiationKWhPerM2 * efficiency * (1 - lossFactor)).toFixed(3));
+/** Rated electrical capacity already includes panel efficiency. Radiation is interval kWh/m², normalized by STC 1 kW/m². */
+export function estimateSolarKWh(panelCapacityKW: number, radiationKWhPerM2: number, temperatureFactor: number, lossFactor: number): number {
+  if (![panelCapacityKW, radiationKWhPerM2, temperatureFactor, lossFactor].every(Number.isFinite) || panelCapacityKW < 0 || radiationKWhPerM2 < 0 || temperatureFactor < 0 || lossFactor < 0 || lossFactor > 1) return 0;
+  return Number((panelCapacityKW * radiationKWhPerM2 * temperatureFactor * (1 - lossFactor)).toFixed(3));
 }
 
 export function estimateWindKWh(powerCurveKW: number, slotHours = SLOT_HOURS): number {

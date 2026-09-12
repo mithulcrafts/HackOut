@@ -21,7 +21,7 @@ The shared scenario is created by `src/lib/demo-store.ts`. A browser receives an
 | Enter demo | `/login` links to `/consumer/today?demo=1`; `/src/proxy.ts` establishes demo access. |
 | Today recommendation | `/consumer/today` renders `ConsumerEvent` from `/api/consumer`. The seeded event can match EV, water-heating, industrial, laundry, dishwasher, irrigation, pool-pump, cold-storage and e-bike loads. |
 | Offer inbox | `/consumer/offers` uses the same event surface and can select an offer by `offerId`. |
-| Add activity | `/consumer/activities` posts timing and power constraints to `/api/activities`; demo scheduling uses the domain scheduler and active event window. Presets cover nine deferrable load types; custom loads receive an independent preview and programme eligibility is explicit. |
+| Add activity | `/consumer/activities` posts timing and power constraints to `/api/activities`; demo scheduling uses the domain scheduler and active event window. Presets cover nine deferrable load types; custom loads receive an offer when the active programme includes `custom`. |
 | Decision | `/api/consumer` accepts `accept`, `modify`, `skip` and `override` through `src/domain/events.ts`. Modify remains pending until accepted; skip and override have no penalty. |
 | Activity detail | `/consumer/activities/[id]` reads `/api/activities/[id]` and shows requirements, schedule, evidence and reward state. |
 | Simulated evidence | `/api/consumer` uses `src/domain/playback.ts`; operator `/operator/simulation` can replay success, partial, late, rebound or missing readings. |

@@ -211,6 +211,8 @@ Use colour and text together: green for Absorb, amber for Protect, blue for acce
 
 Consumer pages: Today, Activities, Offers, Rewards/Impact and Profile. The activity detail page contains schedule and verification evidence. Operator pages use the charts above, Supabase subscriptions for refreshes and a reset button for the deterministic demo. The operator event page contains event creation, participant status, verification, budget and report export.
 
+Current consumer detail implementation (12 September): saved activity links open `/consumer/activities/[id]`. Its authenticated API returns saved requirements and only offers linked to that activity, with their meter readings, verification and reward records. Every query is scoped to the signed-in owner. Unscheduled activities show an explicit empty state; the separate EV simulation cannot verify an unrelated custom activity. The Profile form contains account information, display name, location, user type and simulated device status; the preferred flexible activity selector has been removed. Existing stored preference values are left untouched. Custom-activity scheduling still requires integration with the scheduling track.
+
 ### 5.14 Playback demonstration
 
 Add `Advance 30 minutes`. It generates the next simulated meter readings, runs verification and refreshes charts. The seeded script must demonstrate one successful verification and one opt-out recovery without internet access.

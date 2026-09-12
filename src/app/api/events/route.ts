@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createEvent } from "@/domain/events";
-import { getOrCreateDemoSession, setDemoCookie } from "@/lib/demo-cookie";
+import { setDemoCookie } from "@/lib/demo-cookie";
 import { getScenario, setScenario } from "@/lib/demo-store";
+import { requireOperatorAccess } from "@/lib/operator-access";
 
 const eventSchema = z.object({
   name: z.string().trim().min(3).max(80),
@@ -16,19 +17,23 @@ const eventSchema = z.object({
   offerExpiresAt: z.string().datetime({ offset: true }),
 }).refine((value) => value.windowEnd > value.windowStart, { message: "Event window must end after it starts.", path: ["windowEnd"] });
 
-export async function GET() {
-  const session = await getOrCreateDemoSession();
+export async function GET(request: Request) {
+  const access = await requireOperatorAccess(request);
+  if (access.mode === "error") return access.response;
+  const session = access.session;
   const scenario = getScenario(session);
   return NextResponse.json({ events: scenario.events, data_source: "simulation" });
 }
 
 export async function POST(request: Request) {
+  const access = await requireOperatorAccess(request);
+  if (access.mode === "error") return access.response;
   const parsed = eventSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid event", details: parsed.error.flatten() }, { status: 400 });
-  const session = await getOrCreateDemoSession();
+  const session = access.session;
   const scenario = getScenario(session);
   const event = createEvent(parsed.data);
   const response = NextResponse.json({ event: setScenario(session, { ...scenario, events: [...scenario.events, event] }).events.at(-1), data_source: "simulation" }, { status: 201 });
-  setDemoCookie(response, session);
+  if (access.mode === "demo") setDemoCookie(response, session);
   return response;
 }

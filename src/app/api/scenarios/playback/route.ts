@@ -1,28 +1,27 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getOrCreateDemoSession, setDemoCookie } from "@/lib/demo-cookie";
+import { setDemoCookie } from "@/lib/demo-cookie";
 import { getScenario, setScenario } from "@/lib/demo-store";
-import type { MeterReading } from "@/domain/types";
+import { recordSimulatedOffer, verifyScenarioOffer } from "@/domain/playback";
+import { requireOperatorAccess } from "@/lib/operator-access";
 
-const playbackSchema = z.object({ activityId: z.string().min(1), outcome: z.enum(["success", "partial", "late", "missing"]).default("success") });
+const playbackSchema = z.object({ activityId: z.string().min(1).max(120), outcome: z.enum(["success", "partial", "late", "missing", "rebound"]).default("success") }).strict();
 
 export async function POST(request: Request) {
+  const access = await requireOperatorAccess(request);
+  if (access.mode === "error") return access.response;
   const parsed = playbackSchema.safeParse(await request.json().catch(() => null));
-  if (!parsed.success) return NextResponse.json({ error: "activityId and a supported playback outcome are required." }, { status: 400 });
-  const session = await getOrCreateDemoSession();
-  const scenario = getScenario(session);
-  const activity = scenario.activities.find((item) => item.id === parsed.data.activityId);
-  if (!activity) return NextResponse.json({ error: "Activity not found." }, { status: 404 });
-  if (parsed.data.outcome === "missing") return NextResponse.json({ verificationStatus: "pending", message: "Verification is pending because activity data has not been received.", data_source: "simulation" });
-  const schedule = scenario.schedules.find((item) => item.activityId === activity.id && item.accepted);
-  if (!schedule) return NextResponse.json({ error: "Only an accepted activity can be played back." }, { status: 409 });
-  const multiplier = parsed.data.outcome === "partial" ? 0.55 : parsed.data.outcome === "late" ? 1 : 1;
-  const endHour = Math.floor((schedule.endSlot + (parsed.data.outcome === "late" ? 2 : 0)) / 2).toString().padStart(2, "0");
-  const endMinute = (schedule.endSlot + (parsed.data.outcome === "late" ? 2 : 0)) % 2 ? "30" : "00";
-  const reading: MeterReading = { id: "reading-" + Date.now(), eventId: "event-absorb-demo", activityId: activity.id, deviceId: "simulator", timestamp: scenario.date + "T" + endHour + ":" + endMinute + ":00+05:30", cumulativeKWh: Number((activity.requiredEnergyKWh * multiplier).toFixed(2)), serviceComplete: parsed.data.outcome !== "partial", readingKey: "playback-" + Date.now(), data_source: "simulation" };
-  const updated = { ...scenario, readings: [...scenario.readings, reading] };
-  const response = NextResponse.json({ reading, verificationStatus: "pending", message: "Simulated reading received. Verification remains a server-side trust-track operation.", data_source: "simulation" });
-  setScenario(session, updated);
-  setDemoCookie(response, session);
-  return response;
+  if (!parsed.success) return NextResponse.json({ error: "Choose an activity and a supported playback outcome." }, { status: 400 });
+  const scenario = getScenario(access.session);
+  const offer = scenario.offers.find((item) => item.activityId === parsed.data.activityId && item.decision === "accept");
+  if (!offer) return NextResponse.json({ error: "Accept this activity before running playback." }, { status: 409 });
+  try {
+    const recorded = recordSimulatedOffer(scenario, offer.id, parsed.data.outcome);
+    const updated = setScenario(access.session, verifyScenarioOffer(recorded, offer.id));
+    const verification = updated.results![offer.id];
+    const readings = updated.readings.filter((item) => item.activityId === offer.activityId && item.eventId === offer.eventId);
+    const response = NextResponse.json({ scenario: updated, reading: readings.at(-1) ?? null, readingCount: readings.length, verification, verificationStatus: verification.outcome, message: verification.reason, data_source: "simulation" });
+    if (access.mode === "demo") setDemoCookie(response, access.session);
+    return response;
+  } catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : "Playback could not be completed." }, { status: 409 }); }
 }

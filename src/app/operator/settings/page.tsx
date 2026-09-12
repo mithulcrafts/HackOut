@@ -1,2 +1,6 @@
-import Link from "next/link";
-export default function SettingsPage() { return <main className="shell"><div className="container" style={{ paddingTop: 48 }}><Link className="muted" href="/operator/overview">← Overview</Link><div className="eyebrow" style={{ marginTop: 32 }}>Site settings</div><h1>Keep the operating limits visible.</h1><div className="card"><p className="muted">Site limit <strong>18 kW</strong> · battery capacity <strong>40 kWh</strong> · timezone <strong>Asia/Kolkata</strong></p><p className="muted">These are deterministic demo values. Production configuration belongs with Supabase-backed operator authorization and migrations.</p></div></div></main>; }
+import { requireOperatorPageSession } from "@/lib/operator-page";
+import { getScenario } from "@/lib/demo-store";
+import { OperatorSection } from "@/components/operator-section";
+export const dynamic = "force-dynamic";
+export default async function SettingsPage() { return <OperatorSection scenario={getScenario(await requireOperatorPageSession())} section="settings" />; }
+

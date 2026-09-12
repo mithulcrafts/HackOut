@@ -67,12 +67,12 @@ export function dispatchBattery(forecast: ForecastSlot[], schedules: ScheduleEnt
     const flexible = schedules.filter((s) => s.accepted && slot.index >= s.startSlot && slot.index < s.endSlot).reduce((sum, s) => sum + s.powerKW, 0);
     const balance = slot.renewableKW - slot.fixedDemandKW - flexible;
     if (balance > 0 && state < initial.capacityKWh) {
-      const power = Math.min(initial.maxChargeKW, balance, (initial.capacityKWh - state) / 0.5);
+      const power = Math.min(initial.maxChargeKW, balance, (initial.capacityKWh - state) / (0.5 * Math.sqrt(efficiency)));
       state = Math.min(initial.capacityKWh, state + power * 0.5 * Math.sqrt(efficiency));
       return { slot: slot.index, mode: "absorb", powerKW: Number(power.toFixed(2)), stateOfChargeKWh: Number(state.toFixed(2)), action: "charge" as const };
     }
     if (balance < 0 && state > 0) {
-      const power = Math.min(initial.maxDischargeKW, -balance, state / 0.5);
+      const power = Math.min(initial.maxDischargeKW, -balance, state * Math.sqrt(efficiency) / 0.5);
       state = Math.max(0, state - power * 0.5 / Math.sqrt(efficiency));
       return { slot: slot.index, mode: "protect", powerKW: Number(power.toFixed(2)), stateOfChargeKWh: Number(state.toFixed(2)), action: "discharge" as const };
     }

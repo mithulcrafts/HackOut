@@ -1,2 +1,6 @@
-import Link from "next/link";
-export default function FlexibilityPage() { return <main className="shell"><div className="container" style={{ paddingTop: 48 }}><Link className="muted" href="/operator/overview">← Overview</Link><div className="eyebrow" style={{ marginTop: 32 }}>Flexibility</div><h1>Accepted and verified capacity.</h1><div className="grid metric-grid"><div className="card"><div className="label">Recommended</div><div className="metric amber">14 kW</div></div><div className="card"><div className="label">Accepted</div><div className="metric blue">0 kW</div></div><div className="card"><div className="label">Verified</div><div className="metric violet">0 kW</div></div><div className="card"><div className="label">Unresolved gap</div><div className="metric">0 kW</div></div></div><p className="footer">Accepted and verified are separate states. Device evidence is required before verification.</p></div></main>; }
+import { requireOperatorPageSession } from "@/lib/operator-page";
+import { getScenario } from "@/lib/demo-store";
+import { OperatorSection } from "@/components/operator-section";
+export const dynamic = "force-dynamic";
+export default async function FlexibilityPage() { return <OperatorSection scenario={getScenario(await requireOperatorPageSession())} section="flexibility" />; }
+

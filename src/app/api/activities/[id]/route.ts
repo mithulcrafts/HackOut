@@ -2,14 +2,46 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { activityDatabaseError } from "@/lib/activity-errors";
+import { readDemoSession } from "@/lib/demo-cookie";
+import { getScenario, setScenario } from "@/lib/demo-store";
+import { demoState } from "@/lib/consumer-server";
+import { scheduleDemoActivity as planDemoActivity, demoActivityRecord as demoRecord } from "@/lib/demo-activities";
+import type { Activity as DomainActivity, ActivityType as DomainActivityType } from "@/domain/types";
 
 function storageError(code: string) {
   const failure = activityDatabaseError(code);
   return NextResponse.json({ error: failure.error }, { status: failure.status });
 }
 
+const demoTypes: Record<string, DomainActivityType> = { "EV charging": "ev", "Water heating": "water_heater", "Industrial process": "industrial_process" };
+const editSchema = z.object({
+  type: z.string().trim().min(1).max(40), name: z.string().trim().min(1).max(80),
+  earliestStart: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/), latestFinish: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+  durationHours: z.coerce.number().min(.5).max(12).refine((value) => Number.isInteger(value * 2), "Duration must use 30-minute increments."),
+  interruptible: z.boolean(), powerKW: z.coerce.number().positive().max(500),
+}).strict();
+function slotFromTime(value: string) { const [hours, minutes] = value.split(":").map(Number); return hours * 2 + minutes / 30; }
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
+  const demo = await readDemoSession();
+  if (demo && (process.env.NODE_ENV !== "production" || process.env.DEMO_MODE === "true") && !z.string().uuid().safeParse(id).success) {
+    const scenario = getScenario(demo); const activity = scenario.activities.find((item) => item.id === id);
+    if (!activity) return NextResponse.json({ error: "Activity not found." }, { status: 404 });
+    const sourceOffer = scenario.offers.find((item) => item.activityId === id);
+    const view = demoState(demo, scenario, sourceOffer?.id);
+    const offer = sourceOffer ? (view.offer?.id === sourceOffer.id ? view.offer : {
+      id: sourceOffer.id, name: activity.name, version: sourceOffer.version,
+      decision: sourceOffer.decision === "accept" ? "accepted" : sourceOffer.decision === "skip" ? "skipped" : sourceOffer.decision === "override" ? "overridden" : "pending",
+      baseline_start: sourceOffer.originalStart, proposed_start: sourceOffer.proposedStart,
+      duration_slots: sourceOffer.proposedEnd - sourceOffer.proposedStart, deadline_slot: sourceOffer.deadline,
+      required_kwh: activity.requiredEnergyKWh, power_kw: activity.powerLimitKW,
+      simulation_run: false, completion_slot: null,
+    }) : null;
+    const readings = sourceOffer?.id === view.offer?.id ? view.readings : [];
+    const verification = sourceOffer?.id === view.offer?.id ? view.verification : null;
+    const rewards = sourceOffer?.id === view.offer?.id ? view.rewards : [];
+    return NextResponse.json({ activity: demoRecord(activity, scenario.date), offers: offer ? [{ offer: { ...offer, source: "simulation", version: offer.version, decision: offer.decision, completion_slot: offer.completion_slot }, readings, verification, rewards }] : [] });
+  }
   if (!z.string().uuid().safeParse(id).success) return NextResponse.json({ error: "Invalid activity link." }, { status: 400 });
   let db;
   try { db = await createClient(); } catch { return storageError("STORAGE_UNCONFIGURED"); }
@@ -41,13 +73,30 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
+  const demo = await readDemoSession();
+  if (demo && (process.env.NODE_ENV !== "production" || process.env.DEMO_MODE === "true") && !z.string().uuid().safeParse(id).success) {
+    const parsed = editSchema.safeParse(await request.json().catch(() => null));
+    if (!parsed.success) return NextResponse.json({ error: "Check the activity timing and power limit." }, { status: 400 });
+    const current = getScenario(demo); const existing = current.activities.find((item) => item.id === id);
+    if (!existing) return NextResponse.json({ error: "Activity not found." }, { status: 404 });
+    if (current.schedules.some((item) => item.activityId === id && item.accepted) || current.readings.some((item) => item.activityId === id)) return NextResponse.json({ error: "This activity has accepted evidence and cannot be changed. Add a new activity instead." }, { status: 409 });
+    const v = parsed.data; const type = demoTypes[v.type];
+    if (!type) return NextResponse.json({ error: "The demo supports EV charging, water heating and industrial process activities." }, { status: 400 });
+    const earliest = slotFromTime(v.earliestStart); const latest = slotFromTime(v.latestFinish); const durationSlots = Math.round(v.durationHours * 2);
+    if (![earliest, latest].every(Number.isInteger) || earliest < 0 || latest > 48 || latest <= earliest || earliest + durationSlots > latest) return NextResponse.json({ error: "Use a valid 30-minute window that fits the activity duration." }, { status: 400 });
+    if (existing.baselineStart < earliest || existing.baselineStart + durationSlots > latest) return NextResponse.json({ error: "The original baseline must remain inside the updated activity window." }, { status: 409 });
+    const updated: DomainActivity = { ...existing, type, name: v.name, earliestStart: earliest, latestFinish: latest, durationSlots, interruptible: v.interruptible, powerLimitKW: v.powerKW, requiredEnergyKWh: Number((v.powerKW * v.durationHours).toFixed(2)), status: "recommended" };
+    const base = { ...current, activities: current.activities.filter((item) => item.id !== id), schedules: current.schedules.filter((item) => item.activityId !== id), offers: current.offers.filter((item) => item.activityId !== id) };
+    const planned = planDemoActivity(base, updated); setScenario(demo, planned.scenario);
+    return NextResponse.json({ activity: demoRecord(updated, current.date), offer: planned.offer, data_source: "simulation", message: planned.offer ? "Activity updated and a fresh offer is ready." : "Activity updated. No matching programme offer is available right now." });
+  }
   if (!z.string().uuid().safeParse(id).success) return NextResponse.json({ error: "Invalid activity link." }, { status: 400 });
   let db;
   try { db = await createClient(); } catch { return storageError("STORAGE_UNCONFIGURED"); }
   const { data: { user } } = await db.auth.getUser();
   if (!user) return NextResponse.json({ error: "Sign in to update activities." }, { status: 401 });
   const body = await request.json().catch(() => null);
-  const parsed = z.object({ type: z.string().trim().min(1).max(40), name: z.string().trim().min(1).max(80), earliestStart: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/), latestFinish: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/), durationHours: z.coerce.number().min(.5).max(12).refine((value) => Number.isInteger(value * 2), "Duration must use 30-minute increments."), interruptible: z.boolean(), powerKW: z.coerce.number().positive().max(500) }).strict().safeParse(body);
+  const parsed = editSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: "Check the activity timing and power limit." }, { status: 400 });
   const v=parsed.data; const minutes=Math.round(v.durationHours*60);
   const { data: existing, error: existingError } = await db.from("activities").select("baseline_start,earliest_start").eq("id", id).eq("owner_id", user.id).maybeSingle();
@@ -58,3 +107,4 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   if(error) return NextResponse.json({ error: error.code === "P0002" ? "Activity not found." : error.message.includes("linked offer") ? error.message : "Unable to update activity." }, { status: error.code === "P0002" ? 404 : 409 });
   return NextResponse.json({ activity:data });
 }
+

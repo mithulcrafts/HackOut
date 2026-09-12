@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { eventReport } from "@/domain/events";
-import { getOrCreateDemoSession } from "@/lib/demo-cookie";
 import { getScenario } from "@/lib/demo-store";
+import { requireOperatorAccess } from "@/lib/operator-access";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
-  try { return NextResponse.json(eventReport(getScenario(await getOrCreateDemoSession()), (await params).id)); }
+  const access = await requireOperatorAccess(_request);
+  if (access.mode === "error") return access.response;
+  try { return NextResponse.json(eventReport(getScenario(access.session), (await params).id)); }
   catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : "Event not found." }, { status: 404 }); }
 }

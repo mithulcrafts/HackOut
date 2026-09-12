@@ -1,5 +1,7 @@
 # HackOut’26 Implementation Plan
 
+> **Implementation status — 13 September 2026:** The integrated local demo now shares the Teammate A scenario across consumer offers, activity editing, operator events, meter playback, verification, rewards and in-app notifications. Absorb/Protect scheduling, battery guidance, what-if preview, reports and solar/wind estimator boundaries are implemented. Older dated notes below record previous milestones; use [the current workflow verification](docs/WORKFLOW_VERIFICATION.md) for the implemented scope and deployment gaps. The authenticated Supabase consumer RPC path is still separate from the shared in-memory operator demo. Live data/device/payment integration and installable/offline PWA behavior remain follow-on work.
+
 ## 1. Product scope
 
 Build one mobile-first web application called **VidyutSutra** for the selected problem statement: **Smart Demand-Response & Load-Shifting System**.

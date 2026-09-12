@@ -59,7 +59,7 @@ create index on public.reward_ledger(owner_id);
 create index on public.consumer_notifications(owner_id);
 
 -- Explicit simulation-only commands; never accepts caller-supplied energy or points.
-create function public.consumer_snapshot() returns jsonb language sql stable security invoker set search_path='' as $$
+create or replace function public.consumer_snapshot() returns jsonb language sql stable security invoker set search_path='' as $$
  select jsonb_build_object(
  'offer',(select to_jsonb(o) from public.offers o where owner_id=auth.uid() and fixture_key='consumer-ev-v1'),
  'readings',coalesce((select jsonb_agg(r order by slot) from public.meter_readings r where owner_id=auth.uid()),'[]'::jsonb),
@@ -70,7 +70,7 @@ $$;
 revoke all on function public.consumer_snapshot() from public;
 grant execute on function public.consumer_snapshot() to authenticated;
 
-create function public.consumer_action(command text,target_offer uuid default null,expected_version integer default null,start_slot integer default null,outcome text default null)
+create or replace function public.consumer_action(command text,target_offer uuid default null,expected_version integer default null,start_slot integer default null,outcome text default null)
 returns jsonb language plpgsql security definer set search_path='' as $$
 declare u uuid:=auth.uid(); o public.offers; aid uuid; vid uuid; k integer; run_start integer; energy numeric:=0; step_energy numeric; accepted_energy numeric:=0; baseline_energy numeric:=0; total_energy numeric:=0; eligible numeric:=0; result text; why text;
 begin

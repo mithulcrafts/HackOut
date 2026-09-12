@@ -1,2 +1,6 @@
-import Link from "next/link";
-export default function VerificationPage() { return <main className="shell"><div className="container" style={{ paddingTop: 48 }}><Link className="muted" href="/operator/overview">← Overview</Link><div className="eyebrow" style={{ marginTop: 32 }}>Verification queue</div><h1>Evidence before reward.</h1><div className="card"><h2>Waiting for device readings</h2><p className="muted">The demo has no meter readings yet. A manual Started action cannot prove energy delivery; simulated or authorised device readings will be checked against the frozen accepted window and deadline.</p><span className="source">No reward issued · pending evidence</span></div></div></main>; }
+import { requireOperatorPageSession } from "@/lib/operator-page";
+import { getScenario } from "@/lib/demo-store";
+import { OperatorSection } from "@/components/operator-section";
+export const dynamic = "force-dynamic";
+export default async function VerificationPage() { return <OperatorSection scenario={getScenario(await requireOperatorPageSession())} section="verification" />; }
+

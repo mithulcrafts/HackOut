@@ -39,11 +39,14 @@ export function createSyntheticForecast(): ForecastSlot[] {
   });
 }
 
+/** Estimate energy in kWh from rated kW, irradiation in kWh/m², efficiency and loss fraction. */
 export function estimateSolarKWh(panelCapacityKW: number, radiationKWhPerM2: number, efficiency: number, lossFactor: number): number {
-  if (panelCapacityKW < 0 || radiationKWhPerM2 < 0 || efficiency < 0 || lossFactor < 0) return 0;
+  if (![panelCapacityKW, radiationKWhPerM2, efficiency, lossFactor].every(Number.isFinite) || panelCapacityKW < 0 || radiationKWhPerM2 < 0 || efficiency < 0 || efficiency > 1 || lossFactor < 0 || lossFactor > 1) return 0;
   return Number((panelCapacityKW * radiationKWhPerM2 * efficiency * (1 - lossFactor)).toFixed(3));
 }
 
+/** Convert slot-average wind output in kW to half-hour energy in kWh. */
 export function estimateWindKWh(powerCurveKW: number, slotHours = SLOT_HOURS): number {
-  return Number(Math.max(0, powerCurveKW * slotHours).toFixed(3));
+  if (![powerCurveKW, slotHours].every(Number.isFinite) || powerCurveKW < 0 || slotHours < 0) return 0;
+  return Number((powerCurveKW * slotHours).toFixed(3));
 }

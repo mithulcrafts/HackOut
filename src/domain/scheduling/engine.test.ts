@@ -61,6 +61,14 @@ describe("demand response energy engine", () => {
     expect(dispatch.every((item) => item.stateOfChargeKWh >= 0 && item.stateOfChargeKWh <= scenario.battery.capacityKWh)).toBe(true);
   });
 
+  it("includes discharge losses when a nearly empty battery supplies the grid", () => {
+    const scenario = createDemoScenario();
+    const forecast = [{ ...scenario.forecast[0], renewableKW: 0, fixedDemandKW: 20 }];
+    const [point] = dispatchBattery(forecast, [], { ...scenario.battery, currentKWh: 1, roundTripEfficiency: .81 });
+    expect(point.powerKW * .5).toBeCloseTo(.9);
+    expect(point.stateOfChargeKWh).toBe(0);
+  });
+
   it("rejects an activity with invalid duration constraints", () => {
     const scenario = createDemoScenario();
     const result = createSchedule([{ ...scenario.activities[0], durationSlots: 0 }], scenario.forecast, scenario.sitePowerLimitKW);

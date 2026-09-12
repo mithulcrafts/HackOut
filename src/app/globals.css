@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-:root { --ink:#edf2f1; --muted:#9aa8a7; --surface:#111a1a; --surface-2:#172323; --line:#263737; --amber:#f2b84b; --blue:#72b9ef; --violet:#b79cff; --green:#98d9b0; }
+:root { --ink:#edf2f1; --muted:#9aa8a7; --surface:#111a1a; --surface-2:#172323; --line:#263737; --amber:#f2b84b; --blue:#72b9ef; --violet:#b79cff; --green:#98d9b0; --font-display:"Trebuchet MS",Arial,sans-serif; --font-body:Arial,sans-serif; }
 * { box-sizing: border-box; }
 body { margin:0; background:#091010; color:var(--ink); font-family:var(--font-body), sans-serif; }
 button,a { -webkit-tap-highlight-color:transparent; }

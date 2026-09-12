@@ -2,8 +2,18 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { rewardSummary } from "@/lib/consumer-metrics";
+import { readDemoSession } from "@/lib/demo-cookie";
+import { demoRewardEntries, redeemDemo } from "@/lib/consumer-server";
+import { getScenario } from "@/lib/demo-store";
 
 export async function GET() {
+  const demo = await readDemoSession();
+  if (demo && (process.env.NODE_ENV !== "production" || process.env.DEMO_MODE === "true")) {
+    const scenario = getScenario(demo);
+    const entries = demoRewardEntries(demo);
+    const history = Object.entries(scenario.results ?? {}).map(([offerId, result]) => ({ id: `demo-verification-${offerId}`, offer_id: offerId, status: result.outcome, reason: result.reason, recorded_kwh: result.recordedEnergyKWh, eligible_kwh: result.eligibleShiftedKWh, baseline_kwh: result.requiredEnergyKWh, created_at: result.createdAt }));
+    return NextResponse.json({ ...rewardSummary(entries, history), entries, history });
+  }
   let db;
   try {
     db = await createClient();
@@ -21,8 +31,14 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const parsed = z.object({ rewardId: z.string().uuid() }).strict().safeParse(await request.json().catch(() => null));
+  const demo = await readDemoSession();
+  const parsed = z.object({ rewardId: z.string().min(1) }).strict().safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Choose a valid reward." }, { status: 400 });
+  if (demo && (process.env.NODE_ENV !== "production" || process.env.DEMO_MODE === "true")) {
+    if (!getScenario(demo).rewardLedger?.some((entry) => entry.id === parsed.data.rewardId)) return NextResponse.json({ error: "That verified reward is not available." }, { status: 404 });
+    redeemDemo(demo, parsed.data.rewardId); return NextResponse.json({ message: "Reward marked redeemable in the demo. No real payment was made." });
+  }
+  if (!z.string().uuid().safeParse(parsed.data.rewardId).success) return NextResponse.json({ error: "Choose a valid reward." }, { status: 400 });
   let db;
   try {
     db = await createClient();

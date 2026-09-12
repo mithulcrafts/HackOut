@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { activityInputSchema } from "@/lib/activities";
 import { activityDatabaseError } from "@/lib/activity-errors";
+import { readDemoSession } from "@/lib/demo-cookie";
+import { getScenario, setScenario } from "@/lib/demo-store";
+import { scheduleDemoActivity, demoActivityRecord } from "@/lib/demo-activities";
+import type { Activity as DomainActivity, ActivityType as DomainActivityType } from "@/domain/types";
 
 function databaseFailure(code: string) {
   console.error("Activity database request failed", { code });
@@ -9,7 +13,22 @@ function databaseFailure(code: string) {
   return NextResponse.json({ error: failure.error }, { status: failure.status });
 }
 
+const demoTypes: Record<string, DomainActivityType> = {
+  "EV charging": "ev",
+  "Water heating": "water_heater",
+  "Industrial process": "industrial_process",
+};
+
+function slotFromTime(value: string) {
+  const [hours, minutes] = value.split(":").map(Number);
+  return hours * 2 + minutes / 30;
+}
+
 export async function GET() {
+  const demo = await readDemoSession();
+  if (demo && (process.env.NODE_ENV !== "production" || process.env.DEMO_MODE === "true")) {
+    return NextResponse.json({ activities: getScenario(demo).activities.map((a) => demoActivityRecord(a, getScenario(demo).date)) });
+  }
   let supabase;
   try { supabase = await createClient(); } catch { return NextResponse.json({ error: "Activity storage is not configured for this environment." }, { status: 503 }); }
   const { data: { user } } = await supabase.auth.getUser();
@@ -20,6 +39,22 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const demo = await readDemoSession();
+  if (demo && (process.env.NODE_ENV !== "production" || process.env.DEMO_MODE === "true")) {
+    const parsed = activityInputSchema.safeParse(await request.json().catch(() => null));
+    if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Invalid activity." }, { status: 400 });
+    const v = parsed.data;
+    const domainType = demoTypes[v.type];
+    if (!domainType) return NextResponse.json({ error: "The demo supports EV charging, water heating and industrial process activities." }, { status: 400 });
+    const earliest = slotFromTime(v.earliestStart); const latest = slotFromTime(v.latestFinish);
+    if (![earliest, latest].every(Number.isInteger) || earliest < 0 || latest > 48 || latest <= earliest) return NextResponse.json({ error: "Use 30-minute times within the simulated day." }, { status: 400 });
+    const power = domainType === "ev" ? 4 : domainType === "water_heater" ? 2 : 10;
+    const activity: DomainActivity = { id: `activity-${crypto.randomUUID()}`, name: v.name, type: domainType, requiredEnergyKWh: Number((power * v.durationHours).toFixed(2)), earliestStart: earliest, latestFinish: latest, powerLimitKW: power, durationSlots: Math.round(v.durationHours * 2), interruptible: v.interruptible, baselineStart: earliest, status: "recommended" };
+    const result = scheduleDemoActivity(getScenario(demo), activity);
+    setScenario(demo, result.scenario);
+    const response = NextResponse.json({ activity: demoActivityRecord(activity, result.scenario.date), offer: result.offer, data_source: "simulation", message: result.message }, { status: 201 });
+    return response;
+  }
   let supabase;
   try { supabase = await createClient(); } catch { return NextResponse.json({ error: "Activity storage is not configured for this environment." }, { status: 503 }); }
   const { data: { user } } = await supabase.auth.getUser();
@@ -32,3 +67,4 @@ export async function POST(request: Request) {
   if (error) return databaseFailure(error.code);
   return NextResponse.json({ activity: data }, { status: 201 });
 }
+

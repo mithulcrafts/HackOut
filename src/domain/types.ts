@@ -128,6 +128,9 @@ export interface Scenario {
   offers: Offer[];
   events: DemandResponseEvent[];
   readings: MeterReading[];
+  simulatedOfferIds?: string[];
+  results?: Record<string, VerificationResult & { eligibleShiftedKWh: number; baselineRecordedKWh?: number; createdAt: string }>;
+  rewardLedger?: { id: string; offerId: string; points: number; illustrativeRupees: number; state: "verified" | "redeemable"; createdAt: string }[];
   battery: BatteryState;
   mode: Mode;
   data_source: DataSource;

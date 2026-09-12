@@ -11,7 +11,7 @@
 - Follow explicit user instructions within system/developer constraints; these files do not grant external-action permission.
 - The implementation plan is the product source of truth; skills define execution discipline.
 - Existing code/configuration establishes actual behavior. If it diverges from the plan, report the mismatch and resolve it in scope; do not silently rewrite either.
-- The repository now contains a Next.js/TypeScript scaffold, deterministic Teammate A domain engine, operator routes, APIs, Vitest tests and a pnpm lockfile. Supabase migrations/auth, consumer pages and verification/reward processing remain integration targets owned by the joint Phase 0/B track.
+- The repository contains the Next.js/TypeScript app, deterministic Teammate A domain engine, operator routes/APIs and an integrated consumer/operator demo. Supabase auth/migrations and the separate authenticated consumer RPC path also exist; durable shared operator/consumer production state remains joint integration work. See `docs/WORKFLOW_VERIFICATION.md` for current verified scope and limitations.
 - Recheck the actual application state on future tasks; paths and scripts in the plan are targets until implemented.
 
 ## Product constraints

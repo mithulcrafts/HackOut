@@ -3,9 +3,11 @@
 import { FormEvent, useState } from "react";
 import { ArrowLeft, Leaf, LoaderCircle, LockKeyhole } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [mode, setMode] = useState<"sign-in" | "sign-up">("sign-in");
@@ -21,6 +23,7 @@ export default function LoginPage() {
         : await supabase.auth.signUp({ email, password });
       if (result.error) throw result.error;
       setMessage(mode === "sign-in" ? "Signed in. Your consumer dashboard is ready." : "Account created.");
+      if (result.data.session) router.push("/consumer/activities");
     } catch (error) { setMessage(error instanceof Error ? error.message : "Unable to complete authentication."); }
     finally { setBusy(false); }
   }

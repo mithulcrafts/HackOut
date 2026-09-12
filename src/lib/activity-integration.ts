@@ -2,9 +2,9 @@ import type { Activity as DomainActivity, Scenario } from "@/domain/types";
 import { createSchedule } from "@/domain/scheduling/engine";
 import { effectiveSchedules } from "@/domain/summary";
 import { scheduleDemoActivity } from "./demo-activities";
+import { activityDefaults, activityTypeMap } from "./activities";
 
 type SavedActivity = { id: string; name: string; type: string; earliest_start?: string; latest_finish?: string; baseline_start?: string; duration_minutes?: number; durationHours?: number; interruptible: boolean; status: string; power_kw?: number; required_kwh?: number };
-const typeMap: Record<string, DomainActivity["type"]> = { "EV charging": "ev", "Water heating": "water_heater", "Industrial process": "industrial_process" };
 const toSlot = (time?: string) => time && /^([01]\d|2[0-3]):(00|30)(:00)?$/.test(time) ? Number(time.slice(0, 2)) * 2 + Number(time.slice(3, 5)) / 30 : NaN;
 
 /** Converts owner-scoped requirements; never assumes an arbitrary load is industrial. */
@@ -13,11 +13,12 @@ export function activityToDomain(activity: SavedActivity): DomainActivity | null
   const finish = toSlot(activity.latest_finish);
   const baseline = toSlot(activity.baseline_start ?? activity.earliest_start);
   const durationSlots = Number(activity.duration_minutes ?? (activity.durationHours ?? NaN) * 60) / 30;
-  const power = Number(activity.power_kw ?? (activity.type === "EV charging" ? 4 : activity.type === "Water heating" ? 2 : activity.type === "Industrial process" ? 10 : NaN));
+  const preset = activityDefaults[activity.type as keyof typeof activityDefaults];
+  const power = Number(activity.power_kw ?? preset?.power ?? NaN);
   const energy = Number(activity.required_kwh ?? power * durationSlots * 0.5);
   if (![start, finish, baseline, durationSlots].every(Number.isInteger) || start < 0 || finish > 48 || durationSlots <= 0 || start + durationSlots > finish || baseline < start || baseline + durationSlots > finish || !Number.isFinite(power) || power <= 0 || power > 500 || !Number.isFinite(energy) || energy <= 0 || energy > power * durationSlots * 0.5) return null;
   const statuses: DomainActivity["status"][] = ["recommended", "accepted", "skipped", "completed", "verified", "failed"];
-  return { id: activity.id, name: activity.name, type: typeMap[activity.type] ?? "custom", requiredEnergyKWh: energy, earliestStart: start, latestFinish: finish, powerLimitKW: power, durationSlots, interruptible: activity.interruptible, baselineStart: baseline, status: statuses.includes(activity.status as DomainActivity["status"]) ? activity.status as DomainActivity["status"] : "recommended" };
+  return { id: activity.id, name: activity.name, type: activityTypeMap[activity.type as keyof typeof activityTypeMap] ?? "custom", requiredEnergyKWh: energy, earliestStart: start, latestFinish: finish, powerLimitKW: power, durationSlots, interruptible: activity.interruptible, baselineStart: baseline, status: statuses.includes(activity.status as DomainActivity["status"]) ? activity.status as DomainActivity["status"] : "recommended" };
 }
 
 export function scheduleSavedActivities(activities: SavedActivity[], scenario: Scenario) {

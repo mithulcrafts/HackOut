@@ -7,6 +7,7 @@ import { getScenario, setScenario } from "@/lib/demo-store";
 import { scheduleDemoActivity, demoActivityRecord } from "@/lib/demo-activities";
 import type { Activity as DomainActivity, ActivityType as DomainActivityType } from "@/domain/types";
 import { addActivityToScenario, scheduleSavedActivities } from "@/lib/activity-integration";
+import { activityDefaults, activityTypeMap } from "@/lib/activities";
 
 function databaseFailure(code: string) {
   console.error("Activity database request failed", { code });
@@ -14,12 +15,7 @@ function databaseFailure(code: string) {
   return NextResponse.json({ error: failure.error }, { status: failure.status });
 }
 
-const demoTypes: Record<string, DomainActivityType> = {
-  "EV charging": "ev",
-  "Water heating": "water_heater",
-  "Industrial process": "industrial_process",
-  "Custom": "custom",
-};
+const demoTypes: Record<string, DomainActivityType> = activityTypeMap;
 
 function slotFromTime(value: string) {
   const [hours, minutes] = value.split(":").map(Number);
@@ -50,10 +46,11 @@ export async function POST(request: Request) {
     if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Invalid activity." }, { status: 400 });
     const v = parsed.data;
     const domainType = demoTypes[v.type];
-    if (!domainType) return NextResponse.json({ error: "The demo supports EV charging, water heating and industrial process activities." }, { status: 400 });
+    if (!domainType) return NextResponse.json({ error: "Choose a supported flexible activity." }, { status: 400 });
     const earliest = slotFromTime(v.earliestStart); const latest = slotFromTime(v.latestFinish);
     if (![earliest, latest].every(Number.isInteger) || earliest < 0 || latest > 48 || latest <= earliest) return NextResponse.json({ error: "Use 30-minute times within the simulated day." }, { status: 400 });
-    const power = v.powerKW ?? (domainType === "ev" ? 4 : domainType === "water_heater" ? 2 : 10);
+    const power = v.powerKW ?? activityDefaults[v.type as keyof typeof activityDefaults]?.power;
+    if (!power) return NextResponse.json({ error: "Enter the expected power for this activity." }, { status: 400 });
     const activity: DomainActivity = { id: `activity-${crypto.randomUUID()}`, name: v.name, type: domainType, requiredEnergyKWh: Number((power * v.durationHours).toFixed(2)), earliestStart: earliest, latestFinish: latest, powerLimitKW: power, durationSlots: Math.round(v.durationHours * 2), interruptible: v.interruptible, baselineStart: earliest, status: "recommended" };
     const result = scheduleDemoActivity(getScenario(demo), activity);
     setScenario(demo, result.scenario);
@@ -68,7 +65,7 @@ export async function POST(request: Request) {
   const parsed = activityInputSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Invalid activity." }, { status: 400 });
   const v = parsed.data;
-  const powerKW = v.powerKW ?? (v.type === "EV charging" ? 4 : v.type === "Water heating" ? 2 : v.type === "Industrial process" ? 10 : 1);
+  const powerKW = v.powerKW ?? activityDefaults[v.type as keyof typeof activityDefaults]?.power ?? 1;
   const { data, error } = await supabase.from("activities").insert({ owner_id: user.id, type: v.type, name: v.name, earliest_start: v.earliestStart, latest_finish: v.latestFinish, baseline_start:v.earliestStart, duration_minutes: Math.round(v.durationHours * 60), interruptible: v.interruptible, power_kw:powerKW, required_kwh:powerKW*v.durationHours, status: "recommended" }).select("id,type,name,earliest_start,latest_finish,duration_minutes,interruptible,status,created_at,power_kw,required_kwh").single();
   if (error) return databaseFailure(error.code);
   const session = `operator-${user.id}`;

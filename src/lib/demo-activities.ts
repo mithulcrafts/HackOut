@@ -3,7 +3,11 @@ import { publishEvent } from "@/domain/events";
 import { createSchedule } from "@/domain/scheduling/engine";
 import { effectiveSchedules } from "@/domain/summary";
 
-export const demoActivityNames: Record<ActivityType, string> = { ev: "EV charging", water_heater: "Water heating", industrial_process: "Industrial process", custom: "Custom" };
+export const demoActivityNames: Record<ActivityType, string> = {
+  ev: "EV charging", water_heater: "Water heating", industrial_process: "Industrial process",
+  washing_machine: "Washing machine", dishwasher: "Dishwasher", irrigation_pump: "Irrigation pump",
+  pool_pump: "Pool pump", cold_storage: "Cold storage pre-cooling", e_bike: "E-bike charging", custom: "Custom",
+};
 export function demoActivityRecord(activity: Activity, date: string) {
   const time = (slot: number) => `${String(Math.floor(slot / 2)).padStart(2, "0")}:${slot % 2 ? "30" : "00"}`;
   return { id: activity.id, type: demoActivityNames[activity.type], name: activity.name, earliest_start: time(activity.earliestStart), latest_finish: time(activity.latestFinish), baseline_start: time(activity.baselineStart), duration_minutes: activity.durationSlots * 30, interruptible: activity.interruptible, status: activity.status, created_at: date, power_kw: activity.powerLimitKW, required_kwh: activity.requiredEnergyKWh };

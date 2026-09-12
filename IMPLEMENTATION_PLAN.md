@@ -1,6 +1,6 @@
 # HackOut’26 Implementation Plan
 
-> **Implementation status — 13 September 2026:** The integrated local demo now shares the Teammate A scenario across consumer offers, activity editing, operator events, meter playback, verification, rewards and in-app notifications. Absorb/Protect scheduling, battery guidance, what-if preview, reports and solar/wind estimator boundaries are implemented. Older dated notes below record previous milestones; use [the current workflow verification](docs/WORKFLOW_VERIFICATION.md) for the implemented scope and deployment gaps. The authenticated Supabase consumer RPC path is still separate from the shared in-memory operator demo. Open-Meteo weather previews and an account-scoped mirror of authoritative consumer state are integrated. Live utility/device/payment integration and installable/offline PWA behavior remain follow-on work.
+> **Implementation status — 13 September 2026:** The integrated local demo now shares the Teammate A scenario across consumer offers, activity editing, operator events, meter playback, verification, rewards and in-app notifications. Absorb/Protect scheduling, battery guidance, what-if preview, reports, solar/wind estimator boundaries, ranked operator guidance and a forecast evaluation lab are implemented. Consumer presets also cover washing machine, dishwasher, irrigation pump, pool pump, cold-storage pre-cooling and e-bike charging. A no-hardware evidence-review path accepts a strict meter/charger CSV for untrusted assessment and never releases a reward. Older dated notes below record previous milestones; use [the current workflow verification](docs/WORKFLOW_VERIFICATION.md) for the implemented scope and deployment gaps. The authenticated Supabase consumer RPC path is still separate from the shared in-memory operator demo. Open-Meteo weather previews and an account-scoped mirror of authoritative consumer state are integrated. Live utility/device/payment integration, trusted meter adapters, production forecast training and installable/offline PWA behavior remain follow-on work.
 
 ## 1. Product scope
 
@@ -110,7 +110,7 @@ The operator simulation panel edits renewable multiplier, demand multiplier, acc
 
 ### 5.3 Consumer activity creation
 
-Provide preset cards for EV, water heater and industrial process. A user supplies the practical requirement and deadline; presets provide default power, duration and energy. Store values through `POST /api/activities` after Zod validation.
+Provide preset cards for EV, water heater, industrial process, washing machine, dishwasher, irrigation pump, pool pump, cold-storage pre-cooling and e-bike charging. These are deferrable or interruptible examples; a user supplies the practical requirement and deadline, while each preset provides an editable default power and duration. Store values through `POST /api/activities` after Zod validation. A Custom card remains available for other safe-to-shift loads.
 
 Current activity storage setup: apply `supabase/migrations/20260912135906_create_consumer_activities.sql`, then `20260912141231_allow_custom_activity_types.sql` to the Supabase project used by `.env.local`. Pushing application code does not apply these SQL files. The Custom card uses the same timing fields and allows a user-defined activity name. Save and reload are authenticated; energy/power presets and scheduling remain subsequent work. These two SQL files were applied through the dashboard to the development project on 12 September 2026; dashboard execution does not record CLI migration history, so reconcile that history before adopting `supabase db push` on this existing project.
 
@@ -141,6 +141,8 @@ balanceKW = renewableKW - (fixedDemandKW + scheduledFlexibleDemandKW)
 Positive balance is an **Absorb** opportunity; negative balance is a **Protect** condition. Also flag slots that exceed the site power limit. Implement this as a pure function so scenario previews use exactly the same calculation.
 
 Return a typed, read-only `gridActions` recommendation for each relevant slot. In Absorb mode it proposes flexible demand, storage charging, export and finally curtailment review. In Protect mode it proposes demand delay/reduction, storage discharge, backup review and escalation. These are operator recommendations, never automatic grid commands.
+
+The operator overview also calls `rankGridRecommendations()`. It scores available actions from transparent factors (grid urgency, feasibility and expected relief), reports kW/kWh impact and distinguishes a site-capacity breach from a renewable deficit. The score is a prioritisation aid, not a probability or forecast-accuracy claim; tariff and market cost data are called out as required production inputs.
 
 ### 5.6 Scheduling
 

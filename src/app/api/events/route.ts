@@ -11,7 +11,7 @@ const eventSchema = z.object({
   windowStart: z.number().int().min(0).max(47),
   windowEnd: z.number().int().min(1).max(48),
   requestedFlexibilityKW: z.number().positive().max(10000),
-  eligibleActivityTypes: z.array(z.enum(["ev", "water_heater", "industrial_process"])).min(1),
+  eligibleActivityTypes: z.array(z.enum(["ev", "water_heater", "industrial_process", "washing_machine", "dishwasher", "irrigation_pump", "pool_pump", "cold_storage", "e_bike", "custom"])).min(1),
   rewardRatePerKWh: z.number().min(0).max(100),
   budget: z.number().nonnegative().max(1_000_000),
   offerExpiresAt: z.string().datetime({ offset: true }),

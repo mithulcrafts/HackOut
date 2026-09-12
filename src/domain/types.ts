@@ -1,5 +1,5 @@
 export type DataSource = "simulation" | "weather_estimate" | "device_reading";
-export type ActivityType = "ev" | "water_heater" | "industrial_process" | "custom";
+export type ActivityType = "ev" | "water_heater" | "industrial_process" | "washing_machine" | "dishwasher" | "irrigation_pump" | "pool_pump" | "cold_storage" | "e_bike" | "custom";
 export type ActivityStatus = "recommended" | "accepted" | "skipped" | "completed" | "verified" | "failed";
 export type OfferDecision = "pending" | "accept" | "modify" | "skip" | "override";
 export type Mode = "absorb" | "protect";
@@ -142,6 +142,36 @@ export interface BalanceResult {
   mode: Mode;
   exceedsSiteLimit: boolean;
   gridActions: string[];
+}
+
+export type GridRecommendationAction =
+  | "shift_demand"
+  | "reduce_demand"
+  | "charge_battery"
+  | "discharge_battery"
+  | "export_surplus"
+  | "import_backup_review"
+  | "site_capacity_review"
+  | "curtailment_review";
+
+export interface RecommendationFactor {
+  label: string;
+  score: number;
+  detail: string;
+}
+
+export interface GridRecommendation {
+  slot: number;
+  mode: Mode;
+  action: GridRecommendationAction;
+  title: string;
+  score: number;
+  rationale: string;
+  impact: { powerKW: number; energyKWh: number };
+  factors: RecommendationFactor[];
+  feasibility: "ready" | "consent_required" | "review_required" | "unavailable";
+  caveats: string[];
+  data_source: DataSource;
 }
 
 export interface ScenarioSummary {

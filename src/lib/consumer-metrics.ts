@@ -8,11 +8,21 @@ export function rewardSummary(entries: RewardEntry[], history: HistoryEntry[]) {
   for (const entry of entries) totals[entry.state] += Number(entry.points);
   const totalPoints = totals.verified + totals.redeemable;
   const successful = history.filter(item => item.status === "verified");
+  const shiftedKWh = successful.reduce((sum, item) => sum + Math.max(0, Number(item.eligible_kwh) || 0), 0);
+  const badges = [
+    successful.length >= 1 ? "First verified shift" : null,
+    successful.length >= 3 ? "Reliable participant" : null,
+    shiftedKWh >= 10 ? "Renewable ally · 10 kWh" : null,
+  ].filter((badge): badge is string => Boolean(badge));
+  const nextTarget = successful.length < 1 ? 1 : successful.length < 3 ? 3 : 5;
   return {
     ...totals, totalPoints, verifiedActions: successful.length,
-    shiftedKWh: successful.reduce((sum, item) => sum + Number(item.eligible_kwh), 0),
+    shiftedKWh,
     badge: successful.length >= 3 ? "Reliable Participant" : successful.length ? "First Verified Shift" : null,
+    badges,
+    impactScore: Math.round(successful.length * 25 + shiftedKWh * 5),
     challenge: { target: 3, completed: Math.min(3, successful.length) },
+    nextMilestone: { target: nextTarget, completed: Math.min(nextTarget, successful.length), label: nextTarget === 1 ? "first verified shift" : `${nextTarget} verified shifts` },
   };
 }
 

@@ -7,13 +7,14 @@ import { getScenario, setScenario } from "@/lib/demo-store";
 import { demoState } from "@/lib/consumer-server";
 import { scheduleDemoActivity as planDemoActivity, demoActivityRecord as demoRecord } from "@/lib/demo-activities";
 import type { Activity as DomainActivity, ActivityType as DomainActivityType } from "@/domain/types";
+import { activityTypeMap } from "@/lib/activities";
 
 function storageError(code: string) {
   const failure = activityDatabaseError(code);
   return NextResponse.json({ error: failure.error }, { status: failure.status });
 }
 
-const demoTypes: Record<string, DomainActivityType> = { "EV charging": "ev", "Water heating": "water_heater", "Industrial process": "industrial_process", "Custom": "custom" };
+const demoTypes: Record<string, DomainActivityType> = activityTypeMap;
 const editSchema = z.object({
   type: z.string().trim().min(1).max(40), name: z.string().trim().min(1).max(80),
   earliestStart: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/), latestFinish: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
@@ -72,7 +73,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     if (!existing) return NextResponse.json({ error: "Activity not found." }, { status: 404 });
     if (current.schedules.some((item) => item.activityId === id && item.accepted) || current.readings.some((item) => item.activityId === id)) return NextResponse.json({ error: "This activity has accepted evidence and cannot be changed. Add a new activity instead." }, { status: 409 });
     const v = parsed.data; const type = demoTypes[v.type];
-    if (!type) return NextResponse.json({ error: "The demo supports EV charging, water heating and industrial process activities." }, { status: 400 });
+    if (!type) return NextResponse.json({ error: "Choose a supported flexible activity." }, { status: 400 });
     const earliest = slotFromTime(v.earliestStart); const latest = slotFromTime(v.latestFinish); const durationSlots = Math.round(v.durationHours * 2);
     if (![earliest, latest].every(Number.isInteger) || earliest < 0 || latest > 48 || latest <= earliest || earliest + durationSlots > latest) return NextResponse.json({ error: "Use a valid 30-minute window that fits the activity duration." }, { status: 400 });
     if (existing.baselineStart < earliest || existing.baselineStart + durationSlots > latest) return NextResponse.json({ error: "The original baseline must remain inside the updated activity window." }, { status: 409 });

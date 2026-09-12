@@ -10,7 +10,7 @@ export default function Home() {
   return (
     <main className="app-shell">
       <section className="hero-panel">
-        <div className="eyebrow"><Leaf size={15} /> VidyutSutra <span>• ENERGY PLAN</span></div>
+        <div className="eyebrow"><Leaf size={15} /> VidyutSutra <span>• RENEWABLE FLEXIBILITY</span></div>
         <div className="hero-copy"><p className="kicker">Your energy, better timed.</p><h1>Use electricity at a better time.</h1><p className="hero-description">Tell us what must be ready and by when. We find a renewable-aligned window, protect your deadline and reward verified participation.</p></div>
         <div className="offer-actions"><Link className="primary-button" href="/login">Get started <ArrowRight size={16} /></Link><Link className="text-link" href="/consumer/today?demo=1">Explore the workflow</Link></div>
         <div className="pulse-card"><div className="pulse-ring"><CircleGauge size={30} /><strong>48</strong><small>half-hour slots</small></div><div><span className="status-pill absorb">RENEWABLE FLEXIBILITY</span><h2>Your deadline stays in control</h2><p>Solar and wind estimates help us find a useful window. You can accept, change, skip or override.</p></div></div>

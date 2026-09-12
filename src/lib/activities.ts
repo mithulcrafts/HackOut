@@ -7,7 +7,7 @@ export const activityInputSchema = z.object({
   type: z.string().trim().min(1).max(40), name: z.string().trim().min(1).max(80),
   earliestStart: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
   latestFinish: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
-  durationHours: z.coerce.number().min(0.5).max(12), interruptible: z.boolean(),
+  durationHours: z.coerce.number().min(0.5).max(12).refine((value) => Number.isInteger(value * 2), "Duration must use 30-minute increments."), interruptible: z.boolean(),
 }).superRefine((value, ctx) => {
   const start = toMinutes(value.earliestStart); const finish = toMinutes(value.latestFinish);
   if (finish <= start) ctx.addIssue({ code: "custom", path: ["latestFinish"], message: "Choose a same-day deadline after the start time." });

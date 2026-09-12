@@ -16,7 +16,7 @@ export type ConsumerState = {
   readings: {slot:number;cumulative_kwh:number}[];
   verification: null | {status:"verified"|"partial"|"failed";reason:string;recorded_kwh:number;eligible_kwh:number;baseline_kwh:number;created_at:string};
   rewards: {id:string;points:number;illustrative_rupees:number;state:"pending"|"verified"|"redeemable";created_at:string}[];
-  notifications: {id:string;message:string;created_at:string}[];
+  notifications: {id:string;message:string;created_at:string;read_at?:string|null}[];
 };
 export function slotTime(slot:number) { return `${String(Math.floor(slot/2)).padStart(2,"0")}:${slot%2 ? "30" : "00"}`; }
 export const emptyConsumerState: ConsumerState = {offer:null,readings:[],verification:null,rewards:[],notifications:[]};

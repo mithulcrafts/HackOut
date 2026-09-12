@@ -16,9 +16,7 @@ The product has two sides:
 
 # 1. Installing and Opening the Application
 
-The application can eventually be provided as a mobile app and web application.
-
-For the hackathon prototype, users will open the application in a browser and choose a demo profile.
+The application can eventually be provided as a mobile app and web application. For the hackathon prototype, it will be a mobile-first browser/PWA experience: users open a link, choose a demo profile and can optionally install it from the browser. No app-store installation or invasive device permissions are required.
 
 ## Welcome screen
 
@@ -75,6 +73,8 @@ The prototype can provide separate demo accounts for:
 - Consumer
 - Business
 - Programme operator
+
+Household, EV, business and campus users are consumer accounts with a user type and optional site. Only a utility or authorised programme manager uses the operator role.
 
 ---
 
@@ -138,6 +138,8 @@ The user can select:
 - Industrial process
 - Cooling or pre-cooling
 - Other approved flexible activity
+
+For the MVP, the working presets are **EV charging, water heating and one approved industrial process**. The remaining cards are future extensions using the same activity rules.
 
 The user can add one or more activities.
 
@@ -204,7 +206,7 @@ Type: Storage water heater
 Routine: Every evening
 ```
 
-The app should not schedule heating too early if the water may cool before use.
+The app should not schedule heating too early if the water may cool before use. For real rewards, verification also needs an appropriate runtime and service signal (such as temperature or storage confirmation where required); energy consumption alone cannot prove that hot water was available.
 
 ---
 
@@ -236,7 +238,7 @@ Interruptible: No
 Approval required: Shift supervisor
 ```
 
-The application should not move an industrial activity merely because it consumes a large amount of electricity. The manager must identify activities that are genuinely flexible.
+The application should not move an industrial activity merely because it consumes a large amount of electricity. The manager must identify activities that are genuinely flexible. For real rewards, verification also needs an approved process-completion signal in addition to the energy record.
 
 ---
 
@@ -268,7 +270,7 @@ When the user changes a deadline, the application checks the activity again and 
 
 # 9. Home Screen
 
-The home screen should feel like a simple personal assistant, not a technical control room.
+The home screen should feel like a simple personal assistant, not a technical control room. The recommendation shown here always belongs to an active demand-response event. In the prototype, it comes from the seeded demo event; the app never creates an unexplained standalone offer.
 
 ## Main sections
 
@@ -793,7 +795,7 @@ The programme operator could be a utility, campus energy manager, commercial-sit
 
 Main navigation:
 
-**Overview · Create Event · Participants · Verification · Rewards · Reports**
+**Overview · Events · Flexibility · Verification · Rewards · Reports · Simulation · Settings**
 
 ## Operator overview
 
@@ -927,7 +929,7 @@ The application should always follow these principles:
 
 # 26. Hackathon Prototype Scope
 
-For the first working version, build these screens:
+For the first working version, the **must-have** screens are:
 
 1. Demo entry screen.
 2. Consumer home screen.
@@ -938,7 +940,7 @@ For the first working version, build these screens:
 7. Verification result screen.
 8. Rewards wallet.
 9. Supplier overview.
-10. Surplus/shortage action panel.
+10. Surplus action panel.
 
 Use three sample activities:
 
@@ -954,8 +956,68 @@ Use simulated:
 - Meter readings.
 - Rewards.
 
+After this primary Absorb journey works, add the **stretch** features: Protect mode, battery recommendation, opt-out recovery, what-if controls, event reports, weather-provider integration and optional gamification views. These features must not delay the core forecast → offer → accept → verify → reward flow.
+
 The first complete demonstration should be:
 
 > Renewable-rich period appears → user receives offer → user accepts → schedule changes → simulated activity is completed → result is verified → reward appears → supplier sees the verified response.
 
 This is the central user journey the entire application should make clear.
+
+---
+
+# 27. Workflow-to-Implementation Contract
+
+The implementation follows this exact user journey and does not introduce a separate forecasting product:
+
+```text
+Forecast renewable availability
+→ classify Absorb or Protect opportunity
+→ find eligible flexible activities
+→ create a personalised offer
+→ user accepts, changes, skips or overrides
+→ save the agreed schedule and send a reminder
+→ receive simulated/device reading
+→ verify against the accepted window, baseline and deadline
+→ update reward ledger and impact history
+```
+
+### Consumer screens
+
+```text
+/login
+/consumer/today
+/consumer/activities
+/consumer/activities/[id]
+/consumer/offers
+/consumer/rewards
+/consumer/profile
+```
+
+The consumer navigation is **Today, Activities, Offers, Rewards and Profile**. “Accepted” means the user agreed to an offer; “Verified” means a suitable reading confirmed delivery. These statuses must never be merged.
+
+### Operator screens
+
+```text
+/operator/overview
+/operator/events
+/operator/flexibility
+/operator/verification
+/operator/rewards
+/operator/reports
+/operator/simulation
+/operator/settings
+```
+
+The operator can create an **Absorb** event for renewable surplus or a **Protect** event for a forecast shortage/peak. The application recommends storage, backup review or curtailment review; it does not send real grid-control commands in the prototype.
+
+### Truthful product labels
+
+The interface labels every value as one of:
+
+- **Simulated:** generated for the repeatable hackathon scenario.
+- **Weather estimate:** calculated from public weather information.
+- **Device reading:** supplied by an authorised meter or device integration.
+- **Illustrative reward:** a proposed programme value, not a guaranteed payment.
+
+The prototype uses simulated generation, demand, device readings and rewards. The same interfaces are designed so that public weather providers, approved meters, EV chargers, submeters and programme settlement services can be connected later without changing the consumer workflow.

@@ -4,14 +4,16 @@
 
 Build one web application specifically for mobile for the selected problem statement: **Smart Demand-Response & Load-Shifting System**.
 
-The product flow is:
+The single product flow is:
 
 ```
-Renewable estimate → surplus/shortage detection → schedule recommendation
-→ user decision → simulated/device reading → verification → points/reward
+Renewable estimate → surplus/shortage detection → personalised offer
+→ user decision → schedule/reminder → simulated/device reading → verification → points/reward
 ```
 
-The prototype coordinates flexible demand. It does not control generators, curtailment or real grid equipment. Solar and wind are used for the first demonstration. All simulated generation, readings and illustrative rewards are labelled clearly.
+The prototype coordinates flexible demand. It recommends storage, backup review and curtailment review to an authorised operator; it does not control generators, curtailment or real grid equipment. Solar and wind are used for the first demonstration, while the provider interface can later accept hydro, biomass or other scheduled renewable sources. All simulated generation, readings and illustrative rewards are labelled clearly.
+
+The user-facing promise is: **tell us what must be done and by when; we find a useful time, show the reward and verify the result.** The forecasting module supports this demand-response experience; it is not presented as a second product.
 
 ## 2. Final technical approach
 
@@ -22,10 +24,11 @@ Next.js App Router + TypeScript
 ├── React consumer and operator screens
 ├── Next.js Route Handlers for server operations
 ├── Supabase Auth, Postgres and Row Level Security
-├── Forecast provider (simulation first, Open-Meteo later)
+├── Forecast provider (simulation first, public weather later)
 ├── Renewable estimation and scheduling modules
 ├── Meter simulator with a future device-adapter contract
-└── Verification, points and reward ledger
+├── Verification, points and reward ledger
+└── Event, notification and audit modules
 ```
 
 Next.js App Router route handlers in `app/api/**/route.ts` are the backend boundary. Shared business logic is in `src/domain`, so it can be tested without rendering a page. Supabase stores the shared state and provides authentication and realtime updates. Vercel hosts the application.
@@ -57,15 +60,21 @@ Statuses are `recommended`, `accepted`, `skipped`, `completed`, `verified` and `
 
 Create migrations for these tables:
 
-- `profiles`: user ID, display name, role (`consumer` or `operator`), points.
+- `profiles`: user ID, display name, authorization role (`consumer` or `operator`), `user_type` (household, EV owner, business or campus), active site, points.
+- `sites`: home, campus, business or industrial site and programme membership.
+- `programmes`: operator-owned event programme, reward policy and funding status.
 - `scenarios`: simulated date, site power limit, reward rate and mode.
 - `forecast_slots`: slot start, solar kW, wind kW, renewable kW, fixed demand kW, source.
 - `activities`: owner, device type, energy, timing constraints, baseline and status.
-- `schedules`: activity, slot, planned kW, schedule version and accepted flag.
-- `offers`: activity, proposed slots, reward estimate, decision, expiry and version.
-- `meter_readings`: activity/device, timestamp, cumulative kWh, source and unique reading key.
-- `verifications`: baseline energy, shifted energy, completion result, reason and status.
-- `reward_ledger`: user, activity, points, illustrative cash amount, state and unique activity key.
+- `schedules`: event, activity, slot, planned kW, immutable baseline version and accepted flag.
+- `offers`: event, activity, proposed slots, reward estimate, decision, expiry and version.
+- `events`: objective (`absorb` or `protect`), window, eligible site, requested flexibility, budget and status.
+- `event_participants`: event, activity, commitment and delivery status.
+- `meter_readings`: event, activity/device, timestamp, cumulative kWh, service/process-complete flag, source and unique reading key.
+- `verifications`: event, activity, frozen baseline energy, shifted energy, completion result, reason and status.
+- `reward_ledger`: event, user, activity, points, illustrative cash amount, state and unique activity key.
+- `notifications`: recipient, event/activity, channel, message, read state and delivery status.
+- `audit_log`: actor, action, object, timestamp and human-readable reason.
 - `battery_state`: scenario, capacity, current kWh, charge/discharge limits.
 
 Enable RLS on every exposed table. Consumers read their own activities, offers, readings and rewards. Operators read the selected scenario and aggregate results. Only server-side route handlers may perform schedule reservations, verification and reward-ledger writes.
@@ -76,9 +85,24 @@ Enable RLS on every exposed table. Consumers read their own activities, offers, 
 
 Use Supabase email/password authentication with `@supabase/ssr`. Create a profile row after signup. Add middleware to refresh the session and protect `/consumer` and `/operator`. Check the role again in every server operation; never rely only on hiding a button in React.
 
-### 5.2 Scenario seed and simulation controls
+### 5.2 Scenario seed, programme events and simulation controls
 
-Implement `POST /api/scenarios/seed`. It creates one deterministic scenario, 48 slots, fixed demand, three activities and a battery. Use a fixed random seed so the demo is repeatable. Add `POST /api/scenarios/:id/reset` to restore it.
+Implement `POST /api/scenarios/seed`. It creates one deterministic scenario, 48 slots, fixed demand, three activities and a battery. Use a fixed random seed so the demo is repeatable. Add `POST /api/scenarios/:id/reset` to restore it. Implement a small event wizard for operators: objective, window, eligible activities, reward rate, budget and expiry. Seed one Absorb event and one Protect event.
+
+An event has the lifecycle `draft → active → verifying → closed` for the MVP. Every offer, accepted schedule, reading, verification and reward references its event. At publication, freeze the baseline demand and reward terms; previews and later opt-outs must never rewrite that baseline. A later release may add a separate published approval state.
+
+Expose these event operations:
+
+```text
+POST /api/events                 create draft event
+GET  /api/events                 list operator events and statuses
+POST /api/events/:id/publish     activate event and generate eligible offers
+POST /api/events/:id/close       close after verification
+GET  /api/events/:id/report      recommended → accepted → completed → verified funnel
+GET  /api/events/:id/participants aggregate participant status
+```
+
+The event report is the shared source for the consumer history and operator dashboard.
 
 The operator simulation panel edits renewable multiplier, demand multiplier, acceptance rate, reward rate and battery capacity. `POST /api/scenarios/:id/preview` calculates against an in-memory copy and does not modify accepted offers.
 
@@ -112,15 +136,17 @@ balanceKW = renewableKW - (fixedDemandKW + scheduledFlexibleDemandKW)
 
 Positive balance is an **Absorb** opportunity; negative balance is a **Protect** condition. Also flag slots that exceed the site power limit. Implement this as a pure function so scenario previews use exactly the same calculation.
 
+Return a typed, read-only `gridActions` recommendation for each relevant slot. In Absorb mode it proposes flexible demand, storage charging, export and finally curtailment review. In Protect mode it proposes demand delay/reduction, storage discharge, backup review and escalation. These are operator recommendations, never automatic grid commands.
+
 ### 5.6 Scheduling
 
 Implement `createSchedule(scenarioId)` as a deterministic greedy scheduler. Sort activities by least scheduling freedom, try each legal start slot, reject deadline/power-limit violations and score remaining choices by renewable alignment, user inconvenience and peak impact.
 
 Reserve slots using a schedule version. An accepted offer is not overwritten by a later preview. Return unscheduled activities with a human-readable reason.
 
-### 5.7 Offers and user decisions
+### 5.7 Offers, notifications and user decisions
 
-`POST /api/offers/:id/decision` accepts `accept`, `modify`, `skip` or `override`. Acceptance rechecks the current schedule version before reserving slots. Modification validates the new window and reruns scheduling. Skip releases the offer without penalty. Override releases the accepted reservation and calls recovery.
+`POST /api/offers/:id/decision` accepts `accept`, `modify`, `skip` or `override`. Acceptance rechecks the current schedule version before reserving slots. Modification validates the new window and reruns scheduling. Skip releases the offer without penalty. Override releases the accepted reservation and calls recovery. Create a notification for a new offer, starting window, deadline risk and verification result. Keep notification delivery simulated in the MVP.
 
 The consumer screen shows original schedule, proposed window, deadline, expected renewable availability, reward estimate and data-source label.
 
@@ -128,13 +154,15 @@ The consumer screen shows original schedule, proposed window, deadline, expected
 
 Implement `repairSchedule(scenarioId, lostActivityId)`. Calculate lost kW and slots, search uncommitted eligible activities, create replacement offers and evaluate the battery for the remaining gap. Never move another accepted user without consent. Record an unresolved gap for the operator.
 
+If a forecast changes after an offer is accepted, notify the user and request consent for any changed schedule. A what-if preview runs on a copy and cannot mutate a published event or an accepted record.
+
 ### 5.9 Battery simulation
 
 Implement a pure `dispatchBattery()` function with capacity, current energy, charge/discharge limits and efficiency. Charge in Absorb slots and discharge in Protect slots after demand shifting. Store each action for the operator chart; do not send control commands to real equipment.
 
 ### 5.10 Meter simulator and adapter boundary
 
-Implement `POST /api/meter-readings` accepting device ID, activity ID, timestamp, cumulative kWh, source and unique reading key. Reject unauthenticated devices and duplicate keys.
+Implement `POST /api/meter-readings` accepting event ID, device ID, activity ID, timestamp, cumulative kWh, service/process-complete flag, source and unique reading key. Reject unauthenticated devices and duplicate keys.
 
 Build a simulator that advances one slot at a time and emits successful, partial, overridden and missing-reading cases. A future charger, smart plug or sub-meter adapter submits the same payload. Whole-home bills are not sufficient for appliance-level slot verification.
 
@@ -152,7 +180,11 @@ eligible shifted kWh × approved illustrative rate
 
 Use `pending → verified → redeemable` states. Award points only once per verified activity. Rank the leaderboard by verified participation relative to eligible opportunities, not total consumption. Cash redemption is simulated and labelled as proposed funding.
 
-### 5.13 Consumer and operator dashboards
+### 5.13 Notifications, offline and exception states
+
+Generate notifications for an offer, an accepted window starting, a deadline risk, a verification result and a reward update. In the MVP these can be in-app notifications. Every screen must also have explicit states for no valid window, device offline, missing reading, budget exhausted, deadline missed, all offers rejected and forecast update. Each state explains what happened and provides a safe next action; none silently fails.
+
+### 5.14 Consumer and operator dashboards
 
 Install `recharts` and create reusable chart components under `src/components/charts`. Every chart receives typed arrays from the server and displays its unit, time range and data-source label. Do not put scheduling calculations inside chart components.
 
@@ -175,7 +207,7 @@ The operator dashboard contains:
 
 Use colour and text together: green for Absorb, amber for Protect, blue for accepted and purple for verified. Add tooltips with exact slot time and units. Include an accessible table below each important chart so the demo remains understandable without relying on colour.
 
-Consumer pages: today’s outlook, activity cards, offer decision, schedule, verification evidence, points and reward wallet. Operator pages use the charts above, Supabase subscriptions for refreshes and a reset button for the deterministic demo.
+Consumer pages: Today, Activities, Offers, Rewards/Impact and Profile. The activity detail page contains schedule and verification evidence. Operator pages use the charts above, Supabase subscriptions for refreshes and a reset button for the deterministic demo. The operator event page contains event creation, participant status, verification, budget and report export.
 
 ### 5.14 Playback demonstration
 
@@ -185,13 +217,13 @@ Add `Advance 30 minutes`. It generates the next simulated meter readings, runs v
 
 **Phase 0:** scaffold, migration, shared types, fixtures, auth and README.
 
-**Phase 1:** deterministic simulation, scheduler, offer decisions, meter simulator, verification, points and basic charts. This is the minimum complete demo.
+**Phase 1 (must-have):** deterministic 48-slot simulation, one seeded Absorb event, EV offer accept/skip, schedule, meter simulator, verification, points/reward ledger and a minimal consumer/operator summary. This is the minimum complete demo.
 
-**Phase 2:** Open-Meteo provider, renewable weather estimates, battery, recovery and operator dashboard.
+**Phase 2 (strong stretch):** Protect event, Open-Meteo provider, renewable weather estimates, battery recommendation and recovery after opt-out.
 
-**Phase 3:** what-if preview, playback, evidence receipt, leaderboard and visual polish.
+**Phase 3 (polish/stretch):** what-if preview, playback, evidence receipt, leaderboard, event reports and visual polish.
 
-**Phase 4:** historical generation model and real device adapters only if reliable data or hardware is available.
+**Phase 4 (post-hackathon):** historical generation model, real device adapters, approved payments and utility integrations only if reliable data or hardware is available.
 
 ## 7. Parallel work division
 
@@ -278,9 +310,9 @@ Use `next/font/google` with **Space Grotesk** for headings and **DM Sans** for b
 
 ### Mobile navigation and screen hierarchy
 
-Consumer navigation is a fixed bottom bar with **Today**, **Activities**, **Rewards** and **Profile**. The Today screen has, in order: day pulse, current Absorb/Protect state, one primary offer card, next deadline and a compact schedule. Details open in a bottom sheet rather than a desktop modal.
+Consumer navigation is a fixed bottom bar with **Today**, **Activities**, **Offers**, **Rewards** and **Profile**. The Today screen has, in order: day pulse, current Absorb/Protect state, one primary offer card, next deadline and a compact schedule. Offers is the inbox for pending and expired recommendations; Rewards includes verified impact history. Details open in a bottom sheet rather than a desktop modal.
 
-Operator navigation is a compact top bar with **Overview**, **Flexibility**, **Simulation** and **Settings**. On mobile, charts are horizontally scrollable cards with a summary value first. On desktop, the same cards become a two-column grid.
+Operator navigation is a compact top bar with **Overview**, **Events**, **Flexibility**, **Verification**, **Rewards/Reports**, **Simulation** and **Settings**. On mobile, charts are horizontally scrollable cards with a summary value first. On desktop, the same cards become a two-column grid.
 
 ### Required visual components
 
@@ -309,7 +341,8 @@ The first screen must answer: “What should I do now, and what do I get?” Use
 /consumer/today        day pulse, current offer and schedule
 /consumer/activities   list, add and edit activities
 /consumer/activities/[id] activity detail and evidence
-/consumer/rewards      points, badges, ledger states and leaderboard
+/consumer/offers       pending, accepted, expired and skipped offers
+/consumer/rewards      points, badges, reward ledger and impact history
 /consumer/profile      location, preferences and device simulator
 ```
 
@@ -317,7 +350,11 @@ The first screen must answer: “What should I do now, and what do I get?” Use
 
 ```text
 /operator/overview     supply-demand, mode and peak metrics
+/operator/events       create, monitor and close Absorb/Protect events
 /operator/flexibility  accepted/verified capacity and unresolved gaps
+/operator/verification readings, exceptions and review queue
+/operator/rewards      budget, ledger and programme settlement preview
+/operator/reports      event outcomes and CSV export
 /operator/simulation   controls, playback and reset
 /operator/settings     site limits, source capacities and reward budget
 ```
@@ -353,14 +390,12 @@ Every Codex session starts by reading `AGENTS.md`, this plan and the current Git
 Use one branch per teammate and feature-named commits. Pull/rebase before integration. Never force-push or reset shared history. A change to `src/domain/types.ts`, migrations, API examples, design tokens or shared UI primitives requires a short written note in the commit and an update to the relevant section of this plan. When an external API is unavailable, retain the provider interface and deterministic fixture; never block the rest of the application.
 
 ## 14. Final demo script
-
 1. Open the mobile consumer Today screen and show the day pulse in Absorb mode.
-2. Show an EV offer with original and proposed schedule, deadline and points/reward.
+2. Show an EV offer with original and proposed schedule, deadline and illustrative reward.
 3. Accept the offer and show the schedule update.
 4. Advance the simulator to generate readings; show the evidence receipt and verified points.
-5. Override a second offer; show recovery and the operator’s unresolved-gap metric.
-6. Open the operator dashboard and show supply-demand, baseline-versus-scheduled demand, flexibility funnel, peak reduction and battery chart.
-7. Change renewable availability or reward rate in What-if; show the preview changing without mutating accepted records.
+5. Open the operator overview and show accepted versus verified flexibility and the read-only grid action recommendation.
+6. If stretch features are complete, override a second offer, show recovery, then run Protect mode and What-if preview.
 
 The demo must remain understandable if real weather, hardware and payment services are unavailable.
 

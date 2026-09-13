@@ -29,9 +29,14 @@ export function rewardSummary(entries: RewardEntry[], history: HistoryEntry[]) {
 // Display projections of stored schedules, not a scheduler.
 export function scheduleSeries(offer: ConsumerState["offer"]) {
   if (!offer) return [];
+  // A pending offer is a recommendation, not a commitment. Keep it visible
+  // as a separate series so the user can see what would move without
+  // presenting an unaccepted schedule as delivered demand response.
+  const showProposal = offer.decision === "pending";
   return Array.from({ length: 48 }, (_, slot) => ({
     slot, time: slotTime(slot),
     baseline: slot >= offer.baseline_start && slot < offer.baseline_start + offer.duration_slots ? Number(offer.power_kw) : 0,
+    proposed: showProposal && slot >= offer.proposed_start && slot < offer.proposed_start + offer.duration_slots ? Number(offer.power_kw) : 0,
     accepted: offer.decision === "accepted" && slot >= offer.proposed_start && slot < offer.proposed_start + offer.duration_slots ? Number(offer.power_kw) : 0,
   }));
 }

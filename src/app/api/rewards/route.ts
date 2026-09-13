@@ -36,7 +36,7 @@ export async function POST(request: Request) {
   if (!parsed.success) return NextResponse.json({ error: "Choose a valid reward." }, { status: 400 });
   if (demo && (process.env.NODE_ENV !== "production" || process.env.DEMO_MODE === "true")) {
     if (!getScenario(demo).rewardLedger?.some((entry) => entry.id === parsed.data.rewardId)) return NextResponse.json({ error: "That verified reward is not available." }, { status: 404 });
-    redeemDemo(demo, parsed.data.rewardId); return NextResponse.json({ message: "Verified points are now available in your wallet. Cash values remain estimates." });
+    redeemDemo(demo, parsed.data.rewardId); return NextResponse.json({ message: "Verified points are now available in your wallet. Cash values remain estimates; no real payment was made." });
   }
   if (!z.string().uuid().safeParse(parsed.data.rewardId).success) return NextResponse.json({ error: "Choose a valid reward." }, { status: 400 });
   let db;
@@ -49,5 +49,5 @@ export async function POST(request: Request) {
   if (!user) return NextResponse.json({ error: "Sign in to continue." }, { status: 401 });
   const { error } = await db.rpc("release_demo_reward", { target_reward: parsed.data.rewardId });
   if (error) return NextResponse.json({ error: "Reward could not be released. Refresh and check that it is verified." }, { status: 409 });
-  return NextResponse.json({ message: "Verified points are now available in your wallet. Cash values remain estimates." });
+  return NextResponse.json({ message: "Verified points are now available in your wallet. Cash values remain estimates; no real payment was made." });
 }

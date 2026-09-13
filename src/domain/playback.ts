@@ -106,4 +106,3 @@ export function verifyScenarioOffer(scenario: Scenario, offerId: string): Scenar
   };
 }
 
-

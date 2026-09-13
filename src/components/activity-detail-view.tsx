@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ChevronLeft, LoaderCircle } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { ConsumerNav } from "./consumer-nav";
 import type { ActivityDetail } from "@/lib/activity-detail";
 import { slotTime } from "@/lib/consumer";
@@ -12,6 +13,7 @@ type EditForm = { type: string; name: string; earliestStart: string; latestFinis
 const initialForm: EditForm = { type: "EV charging", name: "", earliestStart: "13:00", latestFinish: "17:00", durationHours: "2", interruptible: true, powerKW: "2.3" };
 
 export function ActivityDetailView({ id }: { id: string }) {
+  const router = useRouter();
   const [result, setResult] = useState<{ detail?: ActivityDetail; error?: string; status?: number }>({});
   const [attempt, setAttempt] = useState(0), [editing, setEditing] = useState(false), [busy, setBusy] = useState(false), [message, setMessage] = useState("");
   const [form, setForm] = useState<EditForm>(initialForm);
@@ -40,14 +42,26 @@ export function ActivityDetailView({ id }: { id: string }) {
     } catch (cause) { setMessage(cause instanceof Error ? cause.message : "Unable to update this activity."); }
     finally { setBusy(false); }
   }
+  async function lifecycle(action: "pause" | "resume" | "remove") {
+    if (action === "remove" && !window.confirm("Remove this activity? Its saved history will be removed only when it has no accepted commitment or evidence.")) return;
+    setBusy(true); setMessage("");
+    try {
+      const response = await fetch(`/api/activities/${encodeURIComponent(id)}/lifecycle`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action }) });
+      const body = await response.json(); if (!response.ok) throw new Error(body.error || "Unable to update participation.");
+      if (action === "remove") { router.push("/consumer/activities"); return; }
+      setAttempt(value => value + 1); setMessage(body.message ?? (action === "pause" ? "Participation paused." : "Participation resumed."));
+    } catch (cause) { setMessage(cause instanceof Error ? cause.message : "Unable to update participation."); }
+    finally { setBusy(false); }
+  }
   return <main className="app-shell">
     <section className="hero-panel activity-hero"><Link className="back-link detail-back" href="/consumer/activities"><ChevronLeft size={17} /> Activities</Link><div className="hero-copy"><p className="kicker">ACTIVITY DETAILS</p><h1 className="detail-title">{detail?.activity.name ?? "Your activity"}</h1><p className="hero-description">Your saved requirements, schedule and verification evidence.</p></div></section>
     <section className="content-section">
       {!detail && !error && <p role="status">Loading activity…</p>}
       {error && <div className="schedule-card"><p role="alert">{error}</p>{status === 401 ? <Link className="secondary-button" href="/login">Sign in</Link> : status !== 404 && <button className="secondary-button" onClick={() => { setResult({}); setAttempt(value => value + 1); }}>Try again</button>}</div>}
       {detail && <>
-        <article className="schedule-card"><div className="section-heading"><div><span className="section-label">SAVED REQUIREMENTS</span><h2>What should we plan?</h2></div>{!editing && <button className="secondary-button" onClick={beginEdit}>Edit activity</button>}</div>
+        <article className="schedule-card"><div className="section-heading"><div><span className="section-label">SAVED REQUIREMENTS</span><h2>What should we plan?</h2></div>{!editing && <div className="offer-actions"><button className="secondary-button" disabled={busy || ["accepted", "completed", "verified"].includes(detail.activity.status)} onClick={beginEdit}>Edit activity</button>{detail.activity.status === "paused" ? <button className="secondary-button" disabled={busy} onClick={() => lifecycle("resume")}>Resume participation</button> : <button className="secondary-button" disabled={busy || ["accepted", "completed", "verified"].includes(detail.activity.status)} onClick={() => lifecycle("pause")}>Pause participation</button>}<button className="text-button danger-action" disabled={busy || ["accepted", "completed", "verified"].includes(detail.activity.status)} onClick={() => lifecycle("remove")}>Remove</button></div>}</div>
           {!editing ? <><dl className="detail-grid"><div><dt>Activity type</dt><dd>{detail.activity.type}</dd></div><div><dt>Activity status</dt><dd>{detail.activity.status}</dd></div><div><dt>Earliest start</dt><dd>{detail.activity.earliest_start.slice(0, 5)}</dd></div><div><dt>Completion deadline</dt><dd>{detail.activity.latest_finish.slice(0, 5)}</dd></div><div><dt>Duration</dt><dd>{detail.activity.duration_minutes / 60} hours</dd></div><div><dt>Power limit</dt><dd>{detail.activity.power_kw ?? "Not set"}{detail.activity.power_kw ? " kW" : ""}</dd></div><div><dt>Required energy</dt><dd>{detail.activity.required_kwh ?? "Not set"}{detail.activity.required_kwh ? " kWh" : ""}</dd></div><div><dt>Can be interrupted</dt><dd>{detail.activity.interruptible ? "Yes" : "No — continuous operation"}</dd></div></dl><p>Times are shown in IST for the selected day.</p></> : <form className="activity-form" onSubmit={saveEdit}><label>Activity type<select value={form.type} onChange={e => update("type", e.target.value)}>{activityTypes.map(type => <option key={type}>{type}</option>)}<option>Custom</option></select></label><label>Activity name<input required maxLength={80} value={form.name} onChange={e => update("name", e.target.value)} /></label><div className="form-row"><label>Can start at<input required type="time" step="1800" value={form.earliestStart} onChange={e => update("earliestStart", e.target.value)} /></label><label>Need it by<input required type="time" step="1800" value={form.latestFinish} onChange={e => update("latestFinish", e.target.value)} /></label></div><div className="form-row"><label>Duration (hours)<input required type="number" min="0.5" max="12" step="0.5" value={form.durationHours} onChange={e => update("durationHours", e.target.value)} /></label><label>Power limit (kW)<input required type="number" min="0.1" max="500" step="0.1" value={form.powerKW} onChange={e => update("powerKW", e.target.value)} /></label></div><label className="toggle-row"><span><strong>Can pause if needed?</strong><small>Allows the scheduler to use more renewable-rich windows.</small></span><input type="checkbox" checked={form.interruptible} onChange={e => update("interruptible", e.target.checked)} /></label><div className="offer-actions"><button className="primary-button" disabled={busy}>{busy && <LoaderCircle size={16} className="spin" />}{busy ? "Saving…" : "Save changes"}</button><button type="button" className="secondary-button" disabled={busy} onClick={() => setEditing(false)}>Cancel</button></div></form>}
+          {detail.activity.status === "paused" && <p className="notice">Participation is paused. This activity will not receive new offers until you resume it.</p>}
           {message && <p className="form-message" role="status">{message}</p>}
         </article>
         {detail.offers.length === 0 && <article className="schedule-card"><h2>No linked offer yet</h2><p>Your activity is saved and ready for scheduling. No meter evidence, verification or rewards have been recorded for it.</p><p>This activity is ready for the next eligible programme event.</p></article>}

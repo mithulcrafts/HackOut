@@ -52,4 +52,12 @@ describe("operator summary", () => {
     expect(summary.verifiedKW).toBeCloseTo(2, 5);
     expect(summary.unresolvedGapKW).toBeCloseTo(Math.max(0, accepted.find((schedule) => schedule.activityId === activity.id)!.powerKW - 2), 5);
   });
+
+  it("removes a paused activity from physical demand while preserving its record", () => {
+    const scenario = createDemoScenario();
+    const paused = { ...scenario, activities: scenario.activities.map((activity, index) => index === 0 ? { ...activity, status: "paused" as const } : activity) };
+    expect(paused.activities).toHaveLength(scenario.activities.length);
+    expect(effectiveSchedules(paused).some((entry) => entry.activityId === paused.activities[0].id)).toBe(false);
+    expect(summarizeScenario(paused).acceptedKW).toBe(0);
+  });
 });

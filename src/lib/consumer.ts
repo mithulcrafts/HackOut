@@ -13,7 +13,9 @@ export const consumerActionSchema = z.object({
 export type ConsumerAction = z.infer<typeof consumerActionSchema>;
 export type ConsumerState = {
   availableOffers?: {id:string;name:string;decision:string}[];
-  offer: null | {id:string; name:string; version:number; decision:"pending"|"accepted"|"skipped"|"overridden"; baseline_start:number; proposed_start:number; duration_slots:number; deadline_slot:number; required_kwh:number; power_kw:number; simulation_run:boolean; completion_slot:number|null};
+  upcoming?: { id: string; name: string; proposed_start: number; duration_slots: number; deadline_slot: number; decision: string }[];
+  rewardSummary?: { verifiedRupees: number; pendingRupees: number; points: number };
+  offer: null | {id:string; name:string; version:number; decision:"pending"|"accepted"|"skipped"|"overridden"; baseline_start:number; proposed_start:number; duration_slots:number; deadline_slot:number; required_kwh:number; power_kw:number; simulation_run:boolean; completion_slot:number|null; expires_at?: string | null};
   readings: {slot:number;cumulative_kwh:number}[];
   verification: null | {status:"pending"|"verified"|"partial"|"failed"|"needs_review";reason:string;recorded_kwh:number;eligible_kwh:number;baseline_kwh:number;created_at:string};
   rewards: {id:string;points:number;illustrative_rupees:number;state:"pending"|"verified"|"redeemable";created_at:string}[];

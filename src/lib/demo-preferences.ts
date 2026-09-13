@@ -6,16 +6,26 @@ export type DemoProfile = {
   leaderboard_opt_in: boolean;
   leaderboard_alias: string;
   preferred_language: "en-IN" | "gu-IN" | "hi-IN" | "mr-IN" | "ta-IN" | "te-IN" | "bn-IN";
+  reminder_channel: "in_app" | "email_sms" | "important_only" | "none";
+  reminder_frequency: "all" | "important" | "quiet_hours";
+  reward_program_opt_in: boolean;
+  programme_name: string;
+  site_name: string;
 };
 
 const defaultProfile: DemoProfile = {
-  display_name: "Demo Participant",
+  display_name: "Energy Participant",
   location: "Gandhinagar, Gujarat",
   user_type: "EV owner",
   device_status: "simulation",
   leaderboard_opt_in: false,
   leaderboard_alias: "Participant",
   preferred_language: "en-IN",
+  reminder_channel: "in_app",
+  reminder_frequency: "all",
+  reward_program_opt_in: true,
+  programme_name: "Demo renewable flexibility programme",
+  site_name: "Gandhinagar participant site",
 };
 
 // This is a per-browser demo store, not a production account database. Keeping

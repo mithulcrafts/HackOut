@@ -7,7 +7,7 @@ function baselineSchedule(activity: Activity): ScheduleEntry {
 
 /** Physical schedule, exactly once per activity. Unaccepted work remains at baseline. */
 export function effectiveSchedules(scenario: Scenario): ScheduleEntry[] {
-  return scenario.activities.map((activity) => {
+  return scenario.activities.filter((activity) => activity.status !== "paused").map((activity) => {
     const accepted = scenario.schedules.filter((schedule) => schedule.activityId === activity.id && schedule.accepted).sort((a, b) => b.version - a.version)[0];
     return accepted ? { ...accepted, accepted: true } : baselineSchedule(activity);
   });

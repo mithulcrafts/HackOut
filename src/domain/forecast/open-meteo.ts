@@ -80,10 +80,19 @@ export class OpenMeteoForecastProvider implements ForecastProvider {
 
   async geocode(locationName: string): Promise<ForecastLocation> {
     const url = new URL("https://geocoding-api.open-meteo.com/v1/search");
-    url.search = new URLSearchParams({ name: locationName, count: "1", language: "en", format: "json" }).toString();
-    const response = await this.request(url, { next: { revalidate: 86400 }, signal: AbortSignal.timeout(8000) });
-    if (!response.ok) throw new Error(`Location lookup returned ${response.status}.`);
-    const body = z.object({ results: z.array(z.object({ latitude: z.number(), longitude: z.number() })).min(1) }).parse(await response.json());
-    return body.results[0];
+    const parts = locationName.split(",").map((part) => part.trim()).filter(Boolean);
+    const queryNames = [...new Set([locationName, parts[0] ?? locationName])];
+    for (const name of queryNames) {
+      url.search = new URLSearchParams({ name, count: "10", language: "en", format: "json" }).toString();
+      const response = await this.request(url, { next: { revalidate: 86400 }, signal: AbortSignal.timeout(8000) });
+      if (!response.ok) throw new Error(`Location lookup returned ${response.status}.`);
+      const body = z.object({ results: z.array(z.object({ latitude: z.number(), longitude: z.number(), name: z.string().optional(), admin1: z.string().optional(), country_code: z.string().optional() })).default([]) }).parse(await response.json());
+      if (body.results.length === 0) continue;
+      const region = parts[1]?.toLocaleLowerCase();
+      const match = region ? body.results.find((candidate) => candidate.admin1?.toLocaleLowerCase() === region || candidate.country_code?.toLocaleLowerCase() === region) : body.results[0];
+      if (match || (name !== locationName && !body.results.some((candidate) => candidate.admin1 || candidate.country_code))) return { latitude: (match ?? body.results[0]).latitude, longitude: (match ?? body.results[0]).longitude };
+      if (!region) return { latitude: body.results[0].latitude, longitude: body.results[0].longitude };
+    }
+    throw new Error("Location was not found. Enter a city and state, for example Gandhinagar, Gujarat.");
   }
 }

@@ -40,15 +40,38 @@ export async function resolveForecast(scenario: Scenario, options: ForecastOptio
       if (!options.locationName) throw new Error("Save a location in Profile before using model forecasts.");
       const geocode = provider instanceof OpenMeteoForecastProvider ? await provider.geocode(options.locationName) : null;
       if (!geocode) throw new Error("Location lookup unavailable.");
-      forecast = await fetchModelForecast(scenario.forecast, geocode, metadata.installation);
-      metadata.provider = "Quartz Solar + WindFM";
+      // Keep a weather estimate available as a component-level fallback. A missing
+      // WindFM service must not erase a valid Quartz solar forecast (or vice versa).
+      let weatherFallback: ForecastSlot[] | null = null;
+      try {
+        const start = `${date}T00:00:00+05:30`;
+        const end = `${indiaDate(new Date(Date.parse(start) + 86400000))}T00:00:00+05:30`;
+        weatherFallback = estimateRenewables(await provider.getForecast(geocode, start, end), scenario.forecast, metadata.installation);
+      } catch { /* model-only operation remains possible */ }
+      const forecastStart = `${date}T00:00:00+05:30`;
+      const models = await fetchModelForecast(scenario.forecast, geocode, metadata.installation, { forecastStart });
+      const solar = models.solar.powerKW;
+      const wind = models.wind.powerKW;
+      if (!solar && !weatherFallback) throw new Error([models.solar.error, models.wind.error].filter(Boolean).join(" ") || "No model output was returned.");
+      const base = weatherFallback ?? scenario.forecast;
+      const completeModel = Boolean(solar && wind);
+      const anyModel = Boolean(solar || wind);
+      forecast = base.map((slot, index) => {
+        const solarKW = solar?.[index] ?? slot.solarKW;
+        const windKW = wind?.[index] ?? slot.windKW;
+        return { ...slot, solarKW, windKW, renewableKW: Number((solarKW + windKW).toFixed(3)), data_source: anyModel ? "model_forecast" : weatherFallback ? "weather_estimate" : "simulation" };
+      });
+      metadata.provider = [models.solar.provider, models.wind.provider].filter((name) => name !== "Not installed").join(" + ") || "Configured model services";
       metadata.location = options.locationName;
-      metadata.weatherDate = date;
-      metadata.message = "Model forecast from the configured Quartz Solar and WindFM services.";
-    } catch {
+      metadata.weatherDate = weatherFallback ? date : null;
+      metadata.fallback = !completeModel;
+      metadata.message = completeModel
+        ? "Live Quartz Solar and WindFM forecasts resampled to the scenario's half-hour operating slots."
+        : `Partial model forecast: ${[models.solar.error, models.wind.error].filter(Boolean).join(" ") || "one component used a weather estimate"}`;
+    } catch (error) {
       metadata.fallback = true;
       metadata.provider = "Open-Meteo fallback";
-      metadata.message = "Model service unavailable. Showing a live Open-Meteo weather estimate where available.";
+      metadata.message = `Model forecast unavailable. ${error instanceof Error ? error.message : "Showing a live Open-Meteo weather estimate where available."}`;
       try {
         if (!options.locationName) throw new Error("No location");
         const geocode = provider instanceof OpenMeteoForecastProvider ? await provider.geocode(options.locationName) : null;

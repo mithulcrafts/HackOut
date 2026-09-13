@@ -3,6 +3,7 @@ import { closeEvent } from "@/domain/events";
 import { setDemoCookie } from "@/lib/demo-cookie";
 import { getScenario, setScenario } from "@/lib/demo-store";
 import { requireOperatorAccess } from "@/lib/operator-access";
+import { eventMutationStatus } from "@/lib/event-errors";
 
 export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const access = await requireOperatorAccess(_request);
@@ -14,5 +15,5 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     const response = NextResponse.json({ scenario: setScenario(session, closed), data_source: "simulation" });
     if (access.mode === "demo") setDemoCookie(response, session);
     return response;
-  } catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to close event." }, { status: 404 }); }
+  } catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to close event." }, { status: eventMutationStatus(error, 409) }); }
 }

@@ -3,6 +3,7 @@ import { publishEvent } from "@/domain/events";
 import { setDemoCookie } from "@/lib/demo-cookie";
 import { getScenario, setScenario } from "@/lib/demo-store";
 import { requireOperatorAccess } from "@/lib/operator-access";
+import { eventMutationStatus } from "@/lib/event-errors";
 
 export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const access = await requireOperatorAccess(_request);
@@ -15,6 +16,6 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     if (access.mode === "demo") setDemoCookie(response, session);
     return response;
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to publish event." }, { status: 404 });
+    return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to publish event." }, { status: eventMutationStatus(error) });
   }
 }

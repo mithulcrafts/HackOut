@@ -19,7 +19,7 @@ export function OperatorDashboard({ scenario, summary }: { scenario: Scenario; s
   const capacityBreach = currentDemand > scenario.sitePowerLimitKW;
   const peakChange = summary.baselinePeakKW > 0 ? Math.round((1 - summary.scheduledPeakKW / summary.baselinePeakKW) * 100) : 0;
   const flexibleAvailable = scenario.activities.filter((activity) => !["accepted", "completed", "verified", "failed", "paused"].includes(activity.status)).length;
-  const budgetTotal = scenario.events.filter((event) => event.status !== "closed").reduce((sum, event) => sum + event.budget, 0);
+  const budgetTotal = scenario.events.reduce((sum, event) => sum + event.budget, 0);
   const budgetSpent = (scenario.rewardLedger ?? []).reduce((sum, entry) => sum + entry.illustrativeRupees, 0);
   const budgetRemaining = Math.max(0, budgetTotal - budgetSpent);
   const storagePoint = battery[FOCUS_SLOT] ?? battery[0];
@@ -41,8 +41,8 @@ export function OperatorDashboard({ scenario, summary }: { scenario: Scenario; s
           <div className="card"><div className="label">Demand at focus</div><div className="metric blue">{currentDemand.toFixed(1)} kW</div><div className="muted">fixed plus accepted load</div></div>
           <div className="card"><div className="label">Balance at focus</div><div className={`metric ${current?.mode === "protect" ? "protect" : "green"}`}>{current ? `${current.balanceKW > 0 ? "+" : ""}${current.balanceKW.toFixed(1)} kW` : "–"}</div><div className="muted">positive means room to absorb</div></div>
           <div className="card"><div className="label">Flexible activities</div><div className="metric violet">{flexibleAvailable}</div><div className="muted">available for a consented offer</div></div>
-          <div className="card"><div className="label">Accepted capacity</div><div className="metric blue">{summary.acceptedKW.toFixed(1)} kW</div><div className="muted">accepted commitments</div></div>
-          <div className="card"><div className="label">Verified response</div><div className="metric violet">{summary.verifiedKW.toFixed(1)} kW</div><div className="muted">confirmed from evidence</div></div>
+          <div className="card"><div className="label">Peak accepted capacity</div><div className="metric blue">{summary.acceptedKW.toFixed(1)} kW</div><div className="muted">maximum concurrent committed load</div></div>
+          <div className="card"><div className="label">Peak verified response</div><div className="metric violet">{summary.verifiedKW.toFixed(1)} kW</div><div className="muted">maximum concurrent evidence-backed response</div></div>
           <div className="card"><div className="label">Reward budget remaining</div><div className="metric amber">₹{budgetRemaining.toFixed(2)}</div><div className="muted">illustrative programme budget</div></div>
           <div className="card"><div className="label">Storage posture</div><div className="metric green" style={{ fontSize: "1.25rem" }}>{storagePoint?.action === "charge" ? "Charge" : storagePoint?.action === "discharge" ? "Discharge" : "Ready"}</div><div className="muted">{scenario.battery.currentKWh.toFixed(1)} / {scenario.battery.capacityKWh} kWh</div></div>
         </section>
@@ -52,3 +52,4 @@ export function OperatorDashboard({ scenario, summary }: { scenario: Scenario; s
     </main>
   );
 }
+

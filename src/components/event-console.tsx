@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import type { DemandResponseEvent } from "@/domain/types";
+import type { ActivityType, DemandResponseEvent } from "@/domain/types";
 import { OperatorNav } from "./operator-nav";
 
 function formatSlot(index: number) {
@@ -13,9 +13,34 @@ function formatSlot(index: number) {
   return `${hour % 12 || 12}:${minute} ${hour >= 12 ? "PM" : "AM"}`;
 }
 
+function isoTimeForSlot(index: number) {
+  const hour = Math.floor(index / 2);
+  const minute = index % 2 === 0 ? "00" : "30";
+  return `${String(hour).padStart(2, "0")}:${minute}:00`;
+}
+
+function formatExpiry(value: string) {
+  const match = value.match(/T(\d{2}):(00|30)/);
+  if (!match) return "Unavailable";
+  return formatSlot(Number(match[1]) * 2 + (match[2] === "30" ? 1 : 0));
+}
+
 const SIMULATION_DATE = "2026-09-12";
+const REPLAY_START_SLOT = 16; // 08:00 IST: the deterministic scenario clock
 const slotOptions = Array.from({ length: 49 }, (_, index) => index);
 const eligibleActivityTypes = ["ev", "water_heater", "industrial_process", "washing_machine", "dishwasher", "irrigation_pump", "pool_pump", "cold_storage", "e_bike", "custom"] as const;
+const activityTypeLabels: Record<ActivityType, string> = {
+  ev: "EV charging",
+  water_heater: "Water heating",
+  industrial_process: "Industrial process",
+  washing_machine: "Washing machine",
+  dishwasher: "Dishwasher",
+  irrigation_pump: "Irrigation pump",
+  pool_pump: "Pool pump",
+  cold_storage: "Cold-storage pre-cooling",
+  e_bike: "E-bike charging",
+  custom: "Custom activity",
+};
 
 type EventPreview = {
   eligibleParticipants: number;
@@ -26,6 +51,8 @@ type EventPreview = {
   minParticipationMet: boolean;
   participationGap: number;
   projectedShiftedEnergyKWh: number;
+  projectedFlexibilityKW: number;
+  flexibilityGapKW: number;
   estimatedRewardCost: number;
   uncoveredEligibleActivities: { id: string; name: string; reason: string }[];
 };
@@ -40,7 +67,15 @@ type ParticipantSummary = {
   acceptedKW: number;
   verifiedKW: number;
   shiftedKWh: number;
+  renewableAlignedConsumptionKWh: number;
+  peakReductionKW: number;
+  peakReductionPercent: number;
+  participantCount: number;
   rewardCost: number;
+  pendingRewardCost: number;
+  disputedActivities: number;
+  acceptanceRate: number;
+  unresolvedGapKW: number;
 };
 
 type ParticipantSnapshot = {
@@ -62,6 +97,8 @@ export function EventConsole({ initialEvents }: { initialEvents: DemandResponseE
   const [requested, setRequested] = useState(10);
   const [rate, setRate] = useState(1.5);
   const [budget, setBudget] = useState(250);
+  const [selectedActivityTypes, setSelectedActivityTypes] = useState<ActivityType[]>([...eligibleActivityTypes]);
+  const [expirySlot, setExpirySlot] = useState(32);
   const [participantGroup, setParticipantGroup] = useState("All enrolled participants");
   const [minParticipants, setMinParticipants] = useState(0);
   const [maxParticipants, setMaxParticipants] = useState(10);
@@ -94,14 +131,19 @@ export function EventConsole({ initialEvents }: { initialEvents: DemandResponseE
     windowStart,
     windowEnd,
     requestedFlexibilityKW: requested,
-    eligibleActivityTypes,
+    eligibleActivityTypes: selectedActivityTypes,
     participantGroup,
     minParticipants,
     maxParticipants,
     rewardRatePerKWh: rate,
     budget,
-    offerExpiresAt: `${SIMULATION_DATE}T23:59:00+05:30`,
+    offerExpiresAt: `${SIMULATION_DATE}T${isoTimeForSlot(expirySlot)}+05:30`,
   });
+
+  function toggleActivityType(type: ActivityType) {
+    setSelectedActivityTypes((current) => current.includes(type) ? current.filter((item) => item !== type) : [...current, type]);
+    setPreview(null);
+  }
 
   async function calculatePreview() {
     setBusy(true);
@@ -184,7 +226,9 @@ export function EventConsole({ initialEvents }: { initialEvents: DemandResponseE
 
   const invalidWindow = windowEnd <= windowStart;
   const invalidParticipation = minParticipants < 0 || maxParticipants < 1 || maxParticipants < minParticipants;
-  const invalidForm = busy || invalidWindow || invalidParticipation || name.trim().length < 3 || participantGroup.trim().length < 2 || requested <= 0 || rate < 0 || budget < 0;
+  const invalidActivityTypes = selectedActivityTypes.length === 0;
+  const invalidExpiry = expirySlot <= REPLAY_START_SLOT || expirySlot > 47;
+  const invalidForm = busy || invalidWindow || invalidParticipation || invalidActivityTypes || invalidExpiry || name.trim().length < 3 || participantGroup.trim().length < 2 || requested <= 0 || rate < 0 || budget < 0;
 
   return (
     <main className="shell">
@@ -211,17 +255,29 @@ export function EventConsole({ initialEvents }: { initialEvents: DemandResponseE
             <label className="filter-control">Participant group<input value={participantGroup} onChange={(e) => { setParticipantGroup(e.target.value); setPreview(null); }} /></label>
             <label className="filter-control">Minimum participants<input type="number" min={0} value={minParticipants} onChange={(e) => { setMinParticipants(Number(e.target.value)); setPreview(null); }} /></label>
             <label className="filter-control">Maximum participants<input type="number" min={1} value={maxParticipants} onChange={(e) => { setMaxParticipants(Number(e.target.value)); setPreview(null); }} /></label>
+            <label className="filter-control">Offer expiry time (IST)<select value={expirySlot} onChange={(e) => { setExpirySlot(Number(e.target.value)); setPreview(null); }}>{slotOptions.slice(1, 48).map((slot) => <option key={slot} value={slot}>{formatSlot(slot)}</option>)}</select><span className="muted" style={{ fontSize: ".75rem" }}>Participants can accept or modify until this time.</span></label>
           </div>
-          <p className="muted">Scenario date: 12 September 2026 · {formatSlot(windowStart)}–{formatSlot(windowEnd)} IST · {participantGroup || "Participant group"} · ₹{budget} cap.</p>
+          <fieldset style={{ border: "1px solid var(--line)", borderRadius: 12, padding: "12px 14px", margin: "8px 0 12px" }}>
+            <legend className="muted" style={{ padding: "0 6px", fontSize: ".78rem" }}>Eligible activity types</legend>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 8 }}>
+              {eligibleActivityTypes.map((type) => <label key={type} style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--ink)", fontSize: ".82rem", cursor: "pointer" }}><input type="checkbox" checked={selectedActivityTypes.includes(type)} onChange={() => toggleActivityType(type)} />{activityTypeLabels[type]}</label>)}
+            </div>
+            <p className="muted" style={{ margin: "9px 0 0", fontSize: ".75rem" }}>{selectedActivityTypes.length} of {eligibleActivityTypes.length} activity types selected.</p>
+          </fieldset>
+          <p className="muted">Scenario date: 12 September 2026 · {formatSlot(windowStart)}–{formatSlot(windowEnd)} IST · offers expire {formatSlot(expirySlot)} · {participantGroup || "Participant group"} · ₹{budget} cap.</p>
           {invalidWindow && <p className="notice error-notice" role="alert">Choose an end time after the start time.</p>}
           {invalidParticipation && <p className="notice error-notice" role="alert">Maximum participation must be at least the minimum.</p>}
+          {invalidActivityTypes && <p className="notice error-notice" role="alert">Select at least one eligible activity type.</p>}
+          {invalidExpiry && <p className="notice error-notice" role="alert">Offer expiry must be after the current scenario decision time (8:00 AM IST).</p>}
           {preview && (
             <div className="event-preview" aria-live="polite">
               <div><strong>{preview.eligibleParticipants}</strong><span>eligible activities</span></div>
               <div><strong>{preview.offerCount}</strong><span>offers projected</span></div>
               <div><strong>{preview.projectedShiftedEnergyKWh.toFixed(1)} kWh</strong><span>potential shifted energy</span></div>
+              <div><strong>{preview.projectedFlexibilityKW.toFixed(1)} kW</strong><span>projected concurrent flexibility</span></div>
               <div><strong>₹{preview.estimatedRewardCost.toFixed(2)}</strong><span>estimated reward cost</span></div>
               <p>{preview.participantGroup}: {preview.minParticipationMet ? `minimum of ${preview.minParticipants} participants is covered` : `${preview.participationGap} more participant${preview.participationGap === 1 ? "" : "s"} needed to meet the minimum`} · maximum {preview.maxParticipants ?? "unlimited"}.</p>
+              <p>{preview.flexibilityGapKW > 0 ? `${preview.flexibilityGapKW.toFixed(1)} kW of the requested target remains uncovered.` : "The projected flexibility target is covered."}</p>
               {preview.uncoveredEligibleActivities.length > 0 && <p>{preview.uncoveredEligibleActivities.length} eligible activities could not be offered safely in this window: {preview.uncoveredEligibleActivities.map((activity) => activity.name).join(", ")}.</p>}
               {preview.uncoveredEligibleActivities.length === 0 && <p>All eligible activities have a safe offer in this scenario.</p>}
             </div>
@@ -240,7 +296,7 @@ export function EventConsole({ initialEvents }: { initialEvents: DemandResponseE
                 <span className={`status ${event.objective === "protect" ? "protect" : ""}`}>{event.status}</span>
               </div>
               <p className="muted" style={{ fontSize: ".84rem" }}>Group: {event.participantGroup ?? "All enrolled participants"} · Participation: {event.minParticipants ?? 0}–{event.maxParticipants ?? "unlimited"} · Reward: ₹{event.rewardRatePerKWh}/kWh · Budget: ₹{event.budget}</p>
-              <p className="muted" style={{ fontSize: ".78rem" }}>Eligible activities: {event.eligibleActivityTypes.join(", ")}</p>
+              <p className="muted" style={{ fontSize: ".78rem" }}>Eligible activities: {event.eligibleActivityTypes.map((type) => activityTypeLabels[type] ?? type).join(", ")} · Offers expire {formatExpiry(event.offerExpiresAt)} IST</p>
               {participantSummaries[event.id] && <div className="participant-summary" aria-label={`${event.name} participant status`}>
                 {[
                   [participantSummaries[event.id].summary.offersSent, "offers sent"],
@@ -248,7 +304,8 @@ export function EventConsole({ initialEvents }: { initialEvents: DemandResponseE
                   [participantSummaries[event.id].summary.verified, "verified"],
                   [participantSummaries[event.id].summary.pendingReadings, "pending readings"],
                 ].map(([value, label]) => <div key={label as string}><strong>{value as number}</strong><span>{label as string}</span></div>)}
-                <p>{participantSummaries[event.id].summary.acceptedKW.toFixed(1)} kW accepted · {participantSummaries[event.id].summary.verifiedKW.toFixed(1)} kW verified · {participantSummaries[event.id].summary.shiftedKWh.toFixed(1)} kWh shifted · ₹{participantSummaries[event.id].summary.rewardCost.toFixed(2)} ledger value</p>
+                <p>{participantSummaries[event.id].summary.acceptedKW.toFixed(1)} kW peak accepted · {participantSummaries[event.id].summary.verifiedKW.toFixed(1)} kW peak verified · {participantSummaries[event.id].summary.shiftedKWh.toFixed(1)} kWh shifted · ₹{participantSummaries[event.id].summary.rewardCost.toFixed(2)} settled</p>
+                <p className="muted">{participantSummaries[event.id].summary.participantCount} participating · {participantSummaries[event.id].summary.acceptanceRate.toFixed(1)}% accepted · {participantSummaries[event.id].summary.peakReductionKW.toFixed(1)} kW peak reduction · {participantSummaries[event.id].summary.renewableAlignedConsumptionKWh.toFixed(1)} kWh renewable-aligned shift · ₹{participantSummaries[event.id].summary.pendingRewardCost.toFixed(2)} pending · {participantSummaries[event.id].summary.disputedActivities} disputed</p>
                 {participantSummaries[event.id].participants.length > 0 && <details><summary>View participant activity status</summary><ul>{participantSummaries[event.id].participants.map((participant) => <li key={participant.activityId}><strong>{participant.name}</strong> · {participant.decision}{participant.verification ? ` · ${participant.verification}` : " · awaiting verification"}</li>)}</ul></details>}
               </div>}
               {event.status === "draft" && <Button className="status min-h-11" onClick={() => publish(event.id)} disabled={busy}>Publish and generate offers</Button>}

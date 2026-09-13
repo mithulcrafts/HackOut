@@ -7,6 +7,9 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { requireOperatorAccess } from "@/lib/operator-access";
 import { getDemoProfile } from "@/lib/demo-preferences";
+import { dispatchBattery } from "@/domain/scheduling/engine";
+import { effectiveSchedules } from "@/domain/summary";
+import { rankGridRecommendations } from "@/domain/grid-recommendations";
 
 const previewSchema = forecastOptionsSchema.extend({
   renewableMultiplier: z.number().min(0).max(3).default(1),
@@ -33,9 +36,14 @@ export async function POST(request: Request) {
   if (!parsed.success) return NextResponse.json({ error: "Choose a valid source, capacities (0–1000 kW) and multipliers (0–3)." }, { status: 400 });
   const scenario = getScenario(access.session);
   const result = await resolveForecast(scenario, { ...parsed.data, locationName: await profileLocation(access) });
+  const preview = previewForecast(scenario, result.forecast, parsed.data.renewableMultiplier, parsed.data.demandMultiplier);
+  const previewScenario = { ...scenario, forecast: preview.forecast, data_source: result.data_source };
+  const previewSchedules = effectiveSchedules(previewScenario);
   const response = NextResponse.json({
     ...result,
-    ...previewForecast(scenario, result.forecast, parsed.data.renewableMultiplier, parsed.data.demandMultiplier),
+    ...preview,
+    battery: dispatchBattery(previewScenario.forecast, previewSchedules, previewScenario.battery),
+    recommendations: rankGridRecommendations(previewScenario),
   }, { headers: { "Cache-Control": "private, no-store" } });
   if (access.mode === "demo") setDemoCookie(response, access.session);
   return response;

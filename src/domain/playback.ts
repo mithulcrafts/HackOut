@@ -82,6 +82,53 @@ export function recordSimulatedOffer(scenario: Scenario, offerId: string, outcom
   return { ...scenario, readings: [...scenario.readings, ...readings], simulatedOfferIds: [...new Set([...(scenario.simulatedOfferIds ?? []), offerId])] };
 }
 
+function slotForTimestamp(date: string, timestamp: string): number | undefined {
+  const midnight = Date.parse(`${date}T00:00:00+05:30`);
+  const parsed = Date.parse(timestamp);
+  if (!Number.isFinite(midnight) || !Number.isFinite(parsed)) return undefined;
+  const slot = (parsed - midnight) / SLOT_MS;
+  return Number.isInteger(slot) ? slot : undefined;
+}
+
+/**
+ * Append exactly one simulated half-hour reading for an accepted offer.
+ *
+ * Full replay remains available through recordSimulatedOffer. This helper is
+ * intentionally incremental so the operator can show the trace growing and
+ * verification moving from pending to a terminal result. The first non-missing
+ * outcome is retained for the offer; otherwise a user changing the selector
+ * between clicks could create an impossible cumulative meter counter.
+ */
+export function advanceSimulatedOffer(scenario: Scenario, offerId: string, requestedOutcome: PlaybackOutcome): Scenario {
+  const offer = scenario.offers.find((item) => item.id === offerId && item.decision === "accept");
+  const activity = scenario.activities.find((item) => item.id === offer?.activityId);
+  const schedule = scenario.schedules.find((item) => item.activityId === activity?.id && item.accepted);
+  if (!offer || !activity || !schedule) throw new Error("Accept this activity before recording evidence.");
+  const existingResult = scenario.results?.[offerId];
+  if (existingResult && existingResult.outcome !== "pending") throw new Error("This activity already has a final verification result. Reset the scenario to try another outcome.");
+
+  // A missing-reading scenario deliberately emits no sample. It stays pending
+  // and can be retried with a real/simulated outcome without locking the offer
+  // to "missing".
+  const outcome = scenario.playbackOutcomes?.[offerId] ?? requestedOutcome;
+  if (outcome === "missing") return scenario;
+
+  const generated = simulateReadings(scenario.date, offer.eventId, activity, schedule, outcome);
+  const existing = scenario.readings.filter((item) => item.eventId === offer.eventId && item.activityId === activity.id);
+  const slots = existing.map((reading) => slotForTimestamp(scenario.date, reading.timestamp)).filter((slot): slot is number => slot !== undefined);
+  const nextSlot = slots.length ? Math.max(...slots) + 1 : 0;
+  const next = generated.find((reading) => slotForTimestamp(scenario.date, reading.timestamp) === nextSlot);
+  if (!next) throw new Error("All simulated readings for this activity are already recorded. Verify the result or reset the scenario.");
+  if (existing.some((reading) => reading.readingKey === next.readingKey)) throw new Error("This simulated interval has already been recorded. Advance again after refreshing the scenario.");
+
+  return {
+    ...scenario,
+    readings: [...scenario.readings, next],
+    simulatedOfferIds: [...new Set([...(scenario.simulatedOfferIds ?? []), offerId])],
+    playbackOutcomes: { ...(scenario.playbackOutcomes ?? {}), [offerId]: outcome },
+  };
+}
+
 /** Idempotent evidence-based settlement shared by consumer and operator routes. */
 export function verifyScenarioOffer(scenario: Scenario, offerId: string): Scenario {
   const offer = scenario.offers.find((item) => item.id === offerId && item.decision === "accept");
@@ -93,7 +140,12 @@ export function verifyScenarioOffer(scenario: Scenario, offerId: string): Scenar
   const verification = verifyReadings(scenario.date, activity, schedule, readings);
   const createdAt = new Date().toISOString();
   const event = scenario.events.find((item) => item.id === offer.eventId);
-  const rewardEligibleKWh = Math.min(verification.eligibleShiftedKWh, event?.rewardRatePerKWh ? offer.rewardEstimate / event.rewardRatePerKWh : 0);
+  // A zero cash rate can still represent a points-only programme. Keep the
+  // verified energy for points/impact instead of treating division by zero as
+  // zero eligible delivery.
+  const rewardEligibleKWh = offer.rewardEligible === false
+    ? 0
+    : Math.min(verification.eligibleShiftedKWh, event?.rewardRatePerKWh ? offer.rewardEstimate / event.rewardRatePerKWh : verification.eligibleShiftedKWh);
   const ledger = scenario.rewardLedger ?? [];
   const spent = ledger.filter((entry) => scenario.offers.find((item) => item.id === entry.offerId)?.eventId === event?.id).reduce((sum, entry) => sum + entry.illustrativeRupees, 0);
   const rupees = verification.outcome === "verified" ? Number(Math.max(0, Math.min(offer.rewardEstimate, verification.eligibleShiftedKWh * (event?.rewardRatePerKWh ?? 0), (event?.budget ?? 0) - spent)).toFixed(2)) : 0;
@@ -102,7 +154,7 @@ export function verifyScenarioOffer(scenario: Scenario, offerId: string): Scenar
     ...scenario,
     results: { ...scenario.results, [offerId]: { ...verification, createdAt } },
     activities: scenario.activities.map((item) => item.id === activity.id ? { ...item, status } : item),
-    rewardLedger: rupees > 0 && !ledger.some((entry) => entry.offerId === offerId) ? [...ledger, { id: `demo-reward-${offerId}`, offerId, points: Math.floor(rewardEligibleKWh * 15), illustrativeRupees: rupees, state: "verified", createdAt }] : ledger,
+    rewardLedger: verification.outcome === "verified" && offer.rewardEligible !== false && rewardEligibleKWh > 0 && !ledger.some((entry) => entry.offerId === offerId) ? [...ledger, { id: `demo-reward-${offerId}`, offerId, points: Math.floor(rewardEligibleKWh * 15), illustrativeRupees: rupees, state: "verified", createdAt }] : ledger,
   };
 }
 

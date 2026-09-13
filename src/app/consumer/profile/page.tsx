@@ -11,6 +11,7 @@ import { BilingualText } from "@/components/bilingual-text";
 
 type ReminderChannel = "in_app" | "email_sms" | "important_only" | "none";
 type ReminderFrequency = "all" | "important" | "quiet_hours";
+type ProfileActivity = { id: string; name: string; type?: string };
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -21,6 +22,8 @@ export default function ProfilePage() {
   const [preferredLanguage, setPreferredLanguage] = useState("en-IN");
   const [reminderChannel, setReminderChannel] = useState<ReminderChannel>("in_app");
   const [reminderFrequency, setReminderFrequency] = useState<ReminderFrequency>("all");
+  const [reminderActivityIds, setReminderActivityIds] = useState<string[]>([]);
+  const [activities, setActivities] = useState<ProfileActivity[]>([]);
   const [rewardProgramOptIn, setRewardProgramOptIn] = useState(true);
   const [programmeName, setProgrammeName] = useState("Demo renewable flexibility programme");
   const [siteName, setSiteName] = useState("Gandhinagar participant site");
@@ -38,16 +41,20 @@ export default function ProfilePage() {
       setEmail(body.email ?? ""); setName(profile.display_name ?? ""); setLocation(profile.location ?? "");
       setUserType(profile.user_type ?? "household"); setPreferredLanguage(profile.preferred_language ?? "en-IN");
       setReminderChannel(profile.reminder_channel ?? "in_app"); setReminderFrequency(profile.reminder_frequency ?? "all");
+      setReminderActivityIds(Array.isArray(profile.reminder_activity_ids) ? profile.reminder_activity_ids : []);
       setRewardProgramOptIn(profile.reward_program_opt_in ?? true); setProgrammeName(profile.programme_name ?? "Demo renewable flexibility programme");
       setSiteName(profile.site_name ?? "Gandhinagar participant site"); setLeaderboardOptIn(Boolean(profile.leaderboard_opt_in)); setLeaderboardAlias(profile.leaderboard_alias ?? "Participant");
       localStorage.setItem("vidyut_language", profile.preferred_language ?? "en-IN");
     }).catch(error => setStatus(error instanceof Error ? error.message : "Unable to load profile."));
+    fetch("/api/activities", { cache: "no-store" }).then(async response => response.ok ? response.json() : null).then(body => {
+      if (Array.isArray(body?.activities)) setActivities(body.activities.map((activity: ProfileActivity) => ({ id: activity.id, name: activity.name, type: activity.type })));
+    }).catch(() => undefined);
   }, []);
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setBusy(true); setStatus("");
     try {
-      const response = await fetch("/api/profile", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ displayName: name, location, userType, preferredLanguage, deviceStatus: "simulation", reminderChannel, reminderFrequency, rewardProgramOptIn, programmeName, siteName, leaderboardOptIn, leaderboardAlias }) });
+      const response = await fetch("/api/profile", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ displayName: name, location, userType, preferredLanguage, deviceStatus: "simulation", reminderChannel, reminderFrequency, reminderActivityIds, rewardProgramOptIn, programmeName, siteName, leaderboardOptIn, leaderboardAlias }) });
       const body = await response.json(); if (!response.ok) throw new Error(body.error);
       localStorage.setItem("vidyut_language", preferredLanguage); setStatus(labels.languageSaved);
     } catch (error) { setStatus(error instanceof Error ? error.message : "Unable to save profile."); }
@@ -71,6 +78,7 @@ export default function ProfilePage() {
       <h2>Reminders and rewards</h2>
       <label>How should we remind you?<select value={reminderChannel} onChange={event => setReminderChannel(event.target.value as ReminderChannel)}><option value="in_app">In-app notifications</option><option value="email_sms">Email or SMS (when connected)</option><option value="important_only">Important reminders only</option><option value="none">No non-essential notifications</option></select></label>
       <label>Reminder frequency<select value={reminderFrequency} onChange={event => setReminderFrequency(event.target.value as ReminderFrequency)}><option value="all">Offers and activity updates</option><option value="important">Only starting windows and deadlines</option><option value="quiet_hours">Quiet hours outside 08:00–20:00 IST</option></select></label>
+      <fieldset className="preference-fieldset"><legend>Activities to remind me about</legend><p className="muted">Leave every box clear to receive reminders for all saved activities. Critical verification and reward updates remain visible.</p>{activities.length ? <div className="preference-options">{activities.map(activity => <label key={activity.id} className="toggle-row"><span><strong>{activity.name}</strong><small>{activity.type ?? "Flexible activity"}</small></span><input type="checkbox" checked={reminderActivityIds.length === 0 || reminderActivityIds.includes(activity.id)} onChange={event => setReminderActivityIds(current => { const allIds = activities.map(item => item.id); const next = new Set(current.length === 0 ? allIds : current); if (event.target.checked) next.add(activity.id); else next.delete(activity.id); return next.size === allIds.length ? [] : [...next]; })} /></label>)}</div> : <p className="muted">Save an activity first to choose activity-specific reminders.</p>}</fieldset>
       <label className="toggle-row"><span><strong>Join reward-based events</strong><small>Participation is always voluntary. Skipping an offer never reduces points.</small></span><input type="checkbox" checked={rewardProgramOptIn} onChange={event => setRewardProgramOptIn(event.target.checked)} /></label>
       <label className="toggle-row"><span><strong>Join the optional participation board</strong><small>Only your alias and verified reliability are shown.</small></span><input type="checkbox" checked={leaderboardOptIn} onChange={event => setLeaderboardOptIn(event.target.checked)} /></label>
       <label>Leaderboard alias<input maxLength={30} value={leaderboardAlias} onChange={event => setLeaderboardAlias(event.target.value)} /></label>

@@ -8,6 +8,9 @@ export type DemoProfile = {
   preferred_language: "en-IN" | "gu-IN" | "hi-IN" | "mr-IN" | "ta-IN" | "te-IN" | "bn-IN";
   reminder_channel: "in_app" | "email_sms" | "important_only" | "none";
   reminder_frequency: "all" | "important" | "quiet_hours";
+  /** Empty means all enrolled activities; otherwise only these activity IDs
+   * receive non-critical reminders. */
+  reminder_activity_ids: string[];
   reward_program_opt_in: boolean;
   programme_name: string;
   site_name: string;
@@ -23,6 +26,7 @@ const defaultProfile: DemoProfile = {
   preferred_language: "en-IN",
   reminder_channel: "in_app",
   reminder_frequency: "all",
+  reminder_activity_ids: [],
   reward_program_opt_in: true,
   programme_name: "Demo renewable flexibility programme",
   site_name: "Gandhinagar participant site",

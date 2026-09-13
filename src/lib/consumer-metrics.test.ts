@@ -14,6 +14,17 @@ describe("verified participation rewards", () => {
     expect(summary.badges).toEqual(["First verified shift"]);
     expect(summary.nextMilestone).toEqual({ target: 3, completed: 1, label: "3 verified shifts" });
     expect(summary.impactScore).toBe(35);
+    expect(summary.verifiedRupees).toBe(3);
+    expect(summary.pendingRupees).toBe(0);
+  });
+
+  it("keeps cash states separate from points", () => {
+    const summary = rewardSummary([
+      { id: "pending", offer_id: "o-p", points: 15, illustrative_rupees: 1.5, state: "pending", created_at: "2026-09-01T00:00:00Z" },
+      { id: "verified", offer_id: "o-v", points: 30, illustrative_rupees: 3, state: "verified", created_at: "2026-09-01T00:00:00Z" },
+      { id: "redeemable", offer_id: "o-r", points: 45, illustrative_rupees: 4.5, state: "redeemable", created_at: "2026-09-01T00:00:00Z" },
+    ], []);
+    expect(summary).toMatchObject({ pending: 15, verified: 30, redeemable: 45, totalPoints: 75, pendingRupees: 1.5, verifiedRupees: 3, redeemableRupees: 4.5 });
   });
 });
 

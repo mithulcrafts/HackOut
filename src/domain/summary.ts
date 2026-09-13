@@ -19,24 +19,56 @@ function peak(scenario: Scenario, schedules: ScheduleEntry[]) {
   return Math.max(...scenario.forecast.map((slot, index) => slot.fixedDemandKW + schedules.filter((schedule) => index >= schedule.startSlot && index < schedule.endSlot).reduce((sum, schedule) => sum + schedule.powerKW, 0)), 0);
 }
 
+/**
+ * Capacity is an instantaneous quantity.  Summing every accepted schedule
+ * would overstate the response when two activities are committed in
+ * different half-hour windows, so operator summaries use the maximum
+ * concurrent kW across the scenario day.
+ */
+function peakConcurrentPower(scenario: Scenario, schedules: ScheduleEntry[]) {
+  return Math.max(...scenario.forecast.map((slot) => schedules
+    .filter((schedule) => slot.index >= schedule.startSlot && slot.index < schedule.endSlot)
+    .reduce((sum, schedule) => sum + schedule.powerKW, 0)), 0);
+}
+
+function latestAcceptedSchedules(scenario: Scenario) {
+  const latest = new Map<string, ScheduleEntry>();
+  for (const schedule of scenario.schedules) {
+    if (!schedule.accepted) continue;
+    const previous = latest.get(schedule.activityId);
+    if (!previous || schedule.version >= previous.version) latest.set(schedule.activityId, schedule);
+  }
+  return [...latest.values()];
+}
+
 function baselinePeak(scenario: Scenario) {
   return peak(scenario, scenario.activities.map(baselineSchedule));
 }
 
+type ScenarioResult = NonNullable<Scenario["results"]>[keyof NonNullable<Scenario["results"]>];
+
 function verifiedResponseKW(scenario: Scenario) {
-  const results = Object.values(scenario.results ?? {}).filter((result) => result.outcome === "verified");
-  if (results.length) return results.reduce((sum, result) => {
-    const activity = scenario.activities.find((item) => item.id === result.activityId);
-    const hours = activity ? activity.durationSlots * 0.5 : 0;
-    return sum + (hours > 0 ? result.eligibleShiftedKWh / hours : 0);
-  }, 0);
-  return 0;
+  const accepted = latestAcceptedSchedules(scenario);
+  const verifiedByActivity = new Map<string, ScenarioResult>();
+  for (const result of Object.values(scenario.results ?? {})) {
+    if (result.outcome !== "verified" || !accepted.some((schedule) => schedule.activityId === result.activityId)) continue;
+    const previous = verifiedByActivity.get(result.activityId);
+    if (!previous || result.createdAt >= previous.createdAt) verifiedByActivity.set(result.activityId, result);
+  }
+  const responseSchedules = [...verifiedByActivity.values()].map((result) => {
+    const schedule = accepted.find((entry) => entry.activityId === result.activityId);
+    const hours = schedule ? (schedule.endSlot - schedule.startSlot) * 0.5 : 0;
+    return schedule && hours > 0
+      ? { ...schedule, powerKW: result.eligibleShiftedKWh / hours }
+      : undefined;
+  }).filter((schedule): schedule is ScheduleEntry => Boolean(schedule));
+  return peakConcurrentPower(scenario, responseSchedules);
 }
 
 export function summarizeScenario(scenario: Scenario): ScenarioSummary {
   const effective = effectiveSchedules(scenario);
   const balances = classifyBalance(scenario.forecast, effective, scenario.sitePowerLimitKW);
-  const acceptedKW = scenario.schedules.filter((schedule) => schedule.accepted).reduce((sum, schedule) => sum + schedule.powerKW, 0);
+  const acceptedKW = peakConcurrentPower(scenario, latestAcceptedSchedules(scenario));
   const verifiedKW = verifiedResponseKW(scenario);
   return { absorbSlots: balances.filter((item) => item.mode === "absorb").length, protectSlots: balances.filter((item) => item.mode === "protect").length, baselinePeakKW: round(baselinePeak(scenario)), scheduledPeakKW: round(peak(scenario, effective)), acceptedKW: round(acceptedKW), verifiedKW: round(verifiedKW), unresolvedGapKW: round(Math.max(0, acceptedKW - verifiedKW)), data_source: "simulation" };
 }

@@ -27,6 +27,17 @@ describe("operator summary", () => {
     expect(summarizeScenario(shifted).acceptedKW).toBeCloseTo(schedules.find((schedule) => schedule.activityId === activity.id)!.powerKW, 5);
   });
 
+  it("reports peak concurrent accepted capacity instead of summing non-overlapping commitments", () => {
+    const scenario = createDemoScenario();
+    const [first, second] = scenario.activities;
+    const schedules = scenario.schedules.map((schedule) => {
+      if (schedule.activityId === first.id) return { ...schedule, startSlot: 2, endSlot: 4, powerKW: 4, accepted: true, version: 2 };
+      if (schedule.activityId === second.id) return { ...schedule, startSlot: 12, endSlot: 14, powerKW: 3, accepted: true, version: 2 };
+      return { ...schedule, accepted: false };
+    });
+    expect(summarizeScenario({ ...scenario, schedules }).acceptedKW).toBe(4);
+  });
+
   it("uses verified eligible energy for response capacity and leaves the gap visible", () => {
     const scenario = createDemoScenario();
     const activity = scenario.activities[0];

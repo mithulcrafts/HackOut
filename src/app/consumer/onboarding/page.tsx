@@ -11,6 +11,10 @@ const accountTypes = [
   { value: "business", title: "Business or industry", detail: "Coordinate approved processes and equipment.", icon: Building2 },
   { value: "campus", title: "Campus or building", detail: "Coordinate flexible loads across a shared site.", icon: UsersRound },
   { value: "programme operator", title: "Programme operator", detail: "Monitor events, flexibility and verified response.", icon: Zap },
+  { value: "grid operator", title: "Grid operator", detail: "Review supply conditions and grid actions.", icon: Zap },
+  { value: "utility company", title: "Utility company", detail: "Coordinate demand-response programmes.", icon: Building2 },
+  { value: "renewable plant owner", title: "Renewable plant owner", detail: "Plan renewable output and flexibility.", icon: Zap },
+  { value: "energy trader", title: "Energy trader", detail: "Monitor forecast risk and market exposure.", icon: Zap },
 ] as const;
 
 export default function OnboardingPage() {
@@ -30,7 +34,7 @@ export default function OnboardingPage() {
   function next(event: FormEvent) {
     event.preventDefault();
     setMessage("");
-    if (userType === "programme operator") {
+    if (["programme operator", "grid operator", "utility company", "renewable plant owner", "energy trader"].includes(userType)) {
       router.push("/operator/overview?demo=1");
       return;
     }
@@ -59,3 +63,6 @@ export default function OnboardingPage() {
     </section>
   </main>;
 }
+
+
+

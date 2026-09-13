@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, BatteryCharging, CircleGauge, Leaf, ShieldCheck, Sparkles, Zap } from "lucide-react";
+import { ArrowRight, BatteryCharging, CircleGauge, Leaf, ShieldCheck, Sparkles, UserRound, WalletCards, Zap } from "lucide-react";
 
 const activities = [
   { label: "EV charging", detail: "Ready by 5:00 PM", icon: BatteryCharging, tone: "amber" },
@@ -16,12 +16,12 @@ export default function Home() {
         <div className="pulse-card"><div className="pulse-ring"><CircleGauge size={30} /><strong>48</strong><small>half-hour slots</small></div><div><span className="status-pill absorb">RENEWABLE FLEXIBILITY</span><h2>Your deadline stays in control</h2><p>Solar and wind estimates help us find a useful window. You can accept, change, skip or override.</p></div></div>
       </section>
       <section className="content-section">
-        <div className="section-heading"><div><span className="section-label">GET STARTED</span><h2>Flexible activities you can add</h2></div><Link className="icon-button" aria-label="Add activity" href="/consumer/activities"><Sparkles size={18} /></Link></div>
+        <div className="section-heading"><div><span className="section-label">GET STARTED</span><h2>Flexible activities you can add</h2></div><Link className="icon-button" aria-label="Add activity" href="/consumer/activities?demo=1"><Sparkles size={18} /></Link></div>
         <div className="activity-list">{activities.map(({ label, detail, icon: Icon, tone }) => <article className="activity-card" key={label}><div className={`activity-icon ${tone}`}><Icon size={20} /></div><div className="activity-copy"><strong>{label}</strong><span>{detail}</span></div><ArrowRight className="muted-icon" size={18} /></article>)}</div>
         <article className="offer-card" id="how-it-works"><div className="offer-mark"><Zap size={20} /></div><div className="offer-copy"><span className="section-label">HOW IT WORKS</span><h3>Plan → accept → verify → reward</h3><p>Move an existing flexible task into a useful window. Points and reward estimates unlock after the meter evidence passes verification.</p></div><Link className="primary-button" href="/login">Review an offer <ArrowRight size={16} /></Link></article>
       </section>
       <section className="trust-strip"><ShieldCheck size={18} /><span>Rewards unlock after a meter reading verifies your activity.</span></section>
-      <nav className="bottom-nav" aria-label="Primary navigation"><Link className="active" href="/consumer/today?demo=1"><CircleGauge size={19} /><span>Today</span></Link><Link href="/consumer/activities"><Zap size={19} /><span>Activities</span></Link><Link href="/consumer/rewards"><Sparkles size={19} /><span>Rewards</span></Link></nav>
+      <nav className="bottom-nav" aria-label="Consumer navigation"><Link className="active" href="/consumer/today?demo=1"><CircleGauge size={18} /><span>Today</span></Link><Link href="/consumer/activities?demo=1"><Zap size={18} /><span>Activities</span></Link><Link href="/consumer/offers?demo=1"><WalletCards size={18} /><span>Offers</span></Link><Link href="/consumer/rewards?demo=1"><Sparkles size={18} /><span>Rewards</span></Link><Link href="/consumer/profile?demo=1"><UserRound size={18} /><span>Profile</span></Link></nav>
     </main>
   );
 }

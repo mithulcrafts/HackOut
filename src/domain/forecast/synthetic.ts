@@ -23,7 +23,10 @@ export function createSyntheticForecast(): ForecastSlot[] {
   return createSlots().map((slot) => {
     const hour = slot.index / 2;
     const daylight = Math.max(0, Math.sin(((hour - 6) / 12) * Math.PI));
-    const cloudDip = slot.index >= 25 && slot.index <= 27 ? 0.62 : 1;
+    // A midday cloud event is placed after the programme starts so the
+    // renewable-rich offer window (13:00–15:00) is visibly aligned with the
+    // strongest available combined output rather than a stale pre-noon peak.
+    const cloudDip = slot.index >= 29 && slot.index <= 31 ? 0.62 : 1;
     const solarKW = Number((10 * daylight * cloudDip).toFixed(2));
     const windKW = Number((2.8 + 0.8 * Math.sin(slot.index * 0.55) + 0.35 * Math.cos(slot.index * 0.21)).toFixed(2));
     const eveningPeak = Math.max(0, 3.2 * Math.sin(((hour - 16) / 7) * Math.PI));

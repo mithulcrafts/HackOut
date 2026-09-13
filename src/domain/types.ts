@@ -1,4 +1,4 @@
-export type DataSource = "simulation" | "weather_estimate" | "device_reading";
+export type DataSource = "simulation" | "weather_estimate" | "model_forecast" | "device_reading";
 export type ActivityType = "ev" | "water_heater" | "industrial_process" | "washing_machine" | "dishwasher" | "irrigation_pump" | "pool_pump" | "cold_storage" | "e_bike" | "custom";
 export type ActivityStatus = "recommended" | "accepted" | "skipped" | "completed" | "verified" | "failed" | "paused";
 export type OfferDecision = "pending" | "accept" | "modify" | "skip" | "override";
@@ -78,6 +78,12 @@ export interface Offer {
   deadline: number;
   renewableAlignment: number;
   rewardEstimate: number;
+  /**
+   * Eligibility is frozen when a participant accepts an offer.  It allows a
+   * user to remain in the scheduling programme after opting out of rewards
+   * without creating a ledger entry during verification.
+   */
+  rewardEligible?: boolean;
   decision: OfferDecision;
   version: number;
   status: ActivityStatus;
@@ -101,6 +107,39 @@ export interface DemandResponseEvent {
   budget: number;
   offerExpiresAt: string;
   frozenBaselineVersion?: number;
+}
+
+/** A release record keeps an operator-visible gap after a participant changes
+ * an accepted plan. It is an audit signal, not proof that a replacement was
+ * delivered. */
+export interface RecoveryRecord {
+  id: string;
+  eventId: string;
+  lostActivityId: string;
+  lostPowerKW: number;
+  lostStartSlot: number;
+  lostEndSlot: number;
+  replacementOfferIds: string[];
+  batterySupportKW: number;
+  unresolvedGapKW: number;
+  createdAt: string;
+  data_source: DataSource;
+}
+
+/**
+ * A participant's request for an operator to inspect missing or disputed
+ * evidence.  It is deliberately separate from VerificationResult: asking for
+ * help must never turn an untrusted upload into a settled reward.
+ */
+export interface EvidenceReviewRequest {
+  id: string;
+  eventId: string;
+  offerId: string;
+  activityId: string;
+  note: string;
+  status: "open" | "acknowledged";
+  createdAt: string;
+  data_source: DataSource;
 }
 
 export interface BatteryState {
@@ -132,8 +171,13 @@ export interface Scenario {
   events: DemandResponseEvent[];
   readings: MeterReading[];
   simulatedOfferIds?: string[];
+  /** Outcome selected for an incremental simulator trace, kept stable so
+   * changing the UI selector mid-trace cannot produce contradictory counters. */
+  playbackOutcomes?: Record<string, "success" | "partial" | "late" | "missing" | "rebound">;
   results?: Record<string, VerificationResult & { eligibleShiftedKWh: number; baselineRecordedKWh?: number; createdAt: string }>;
   rewardLedger?: { id: string; offerId: string; points: number; illustrativeRupees: number; state: "verified" | "redeemable"; createdAt: string }[];
+  recovery?: RecoveryRecord[];
+  evidenceReviewRequests?: EvidenceReviewRequest[];
   battery: BatteryState;
   mode: Mode;
   data_source: DataSource;

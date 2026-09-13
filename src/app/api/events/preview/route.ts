@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { createEvent, publishEvent } from "@/domain/events";
+import { createEvent, eventEligibleActivities, eventProjectedFlexibilityKW, eventProjectedShiftedEnergyKWh, publishEvent } from "@/domain/events";
 import { getScenario } from "@/lib/demo-store";
 import { requireOperatorAccess } from "@/lib/operator-access";
 
@@ -31,9 +31,10 @@ export async function POST(request: Request) {
     const projected = publishEvent({ ...scenario, events: [...scenario.events, event] }, event.id);
     const offers = projected.offers.filter((offer) => offer.eventId === event.id);
     const offerActivityIds = new Set(offers.map((offer) => offer.activityId));
-    const eligibleActivities = scenario.activities.filter((activity) => event.eligibleActivityTypes.includes(activity.type));
-    const projectedEnergyKWh = offers.reduce((sum, offer) => sum + (event.rewardRatePerKWh > 0 ? offer.rewardEstimate / event.rewardRatePerKWh : 0), 0);
+    const eligibleActivities = eventEligibleActivities(scenario, event);
+    const projectedEnergyKWh = eventProjectedShiftedEnergyKWh(projected, event.id);
     const rewardCost = offers.reduce((sum, offer) => sum + offer.rewardEstimate, 0);
+    const projectedFlexibilityKW = eventProjectedFlexibilityKW(projected, event.id);
     return NextResponse.json({
       preview: {
         eligibleParticipants: eligibleActivities.length,
@@ -44,6 +45,8 @@ export async function POST(request: Request) {
         minParticipationMet: offers.length >= (event.minParticipants ?? 0),
         participationGap: Math.max(0, (event.minParticipants ?? 0) - offers.length),
         projectedShiftedEnergyKWh: Number(projectedEnergyKWh.toFixed(2)),
+        projectedFlexibilityKW,
+        flexibilityGapKW: Number(Math.max(0, event.requestedFlexibilityKW - projectedFlexibilityKW).toFixed(2)),
         estimatedRewardCost: Number(rewardCost.toFixed(2)),
         requestedFlexibilityKW: event.requestedFlexibilityKW,
         uncoveredEligibleActivities: eligibleActivities.filter((activity) => !offerActivityIds.has(activity.id)).map((activity) => ({ id: activity.id, name: activity.name, reason: "No safe window met the event, deadline or site-capacity constraints." })),

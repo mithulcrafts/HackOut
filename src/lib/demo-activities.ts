@@ -22,8 +22,25 @@ export function scheduleDemoActivity(scenario: Scenario, activity: Activity) {
   let schedule;
   let offer = null;
   if (event) {
-    const reserved = scenario.offers.filter((item) => item.eventId === event.id && item.decision === "accept").reduce((sum, item) => sum + item.rewardEstimate, 0);
-    const publication = publishEvent({ ...scenario, activities: [activity], schedules: committed, offers: [], events: [{ ...event, status: "draft", budget: Math.max(0, event.budget - reserved) }] }, event.id);
+    // Keep the complete activity/offer view while planning the new row. This
+    // lets publication account for accepted offers from the same event when
+    // enforcing its concurrent kW cap. The planner receives the effective
+    // schedules as reservations, so an unaccepted activity still occupies its
+    // frozen baseline and an accepted activity occupies its committed window.
+    // Existing pending/modified offers also reserve their illustrative budget;
+    // otherwise repeated activity creation could over-promise the event cap.
+    const reserved = scenario.offers
+      .filter((item) => item.eventId === event.id && ["pending", "modify", "accept"].includes(item.decision))
+      .reduce((sum, item) => sum + Math.max(0, item.rewardEstimate), 0);
+    const publication = publishEvent({
+      ...scenario,
+      activities: [...scenario.activities, activity],
+      schedules: committed,
+      offers: scenario.offers,
+      events: scenario.events.map((item) => item.id === event.id
+        ? { ...item, status: "draft" as const, budget: Math.max(0, event.budget - reserved) }
+        : item),
+    }, event.id);
     offer = publication.offers.find((item) => item.activityId === activity.id) ?? null;
     schedule = publication.schedules.find((item) => item.activityId === activity.id);
   } else {

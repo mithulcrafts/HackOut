@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createDemoScenario } from "./fixtures";
-import { decideOffer, eventReport, publishEvent } from "./events";
+import { decideOffer, eventCommittedFlexibilityKW, eventEligibleActivities, eventProjectedFlexibilityKW, eventProjectedShiftedEnergyKWh, eventReport, isOfferExpired, publishEvent, repairSchedule, validateEvent } from "./events";
 import type { Activity, Scenario } from "./types";
 
 function eventScenario(objective: "absorb" | "protect", activities?: Activity[]): Scenario {
@@ -129,11 +129,80 @@ describe("event orchestration", () => {
     expect(publishEvent(capped, capped.events[0].id).offers).toHaveLength(1);
   });
 
+  it("enforces requested flexibility as an instantaneous kW cap while allowing non-overlap", () => {
+    const base = eventScenario("absorb", [
+      { ...createDemoScenario().activities[0], id: "first", baselineStart: 20, earliestStart: 18, latestFinish: 34, status: "recommended" },
+      { ...createDemoScenario().activities[0], id: "second", baselineStart: 20, earliestStart: 18, latestFinish: 34, status: "recommended" },
+    ]);
+    const constrainedEvent = { ...base.events[0], windowStart: 26, windowEnd: 34, requestedFlexibilityKW: 4 };
+    const published = publishEvent({ ...base, events: [constrainedEvent] }, constrainedEvent.id);
+    // Each 4 kW load can use the target sequentially, but two overlapping
+    // commitments may never exceed the event's instantaneous request.
+    expect(published.offers.length).toBeGreaterThan(0);
+    expect(eventProjectedFlexibilityKW(published, constrainedEvent.id)).toBeLessThanOrEqual(4);
+    expect(eventCommittedFlexibilityKW(published, constrainedEvent.id)).toBeLessThanOrEqual(4);
+    const first = published.offers[0];
+    const accepted = decideOffer(published, first.id, "accept", undefined, first.version);
+    const second = accepted.offers.find((offer) => offer.id !== first.id);
+    if (second) {
+      expect(() => decideOffer(accepted, second.id, "accept", first.proposedStart, second.version)).toThrow("requested flexibility capacity");
+    }
+  });
+
+  it("caps Protect relief at the frozen baseline peak, not the replacement window", () => {
+    const seed = createDemoScenario();
+    const first = { ...seed.activities[0], id: "protect-first", baselineStart: 20, earliestStart: 18, latestFinish: 34, status: "recommended" as const };
+    const second = { ...seed.activities[0], id: "protect-second", baselineStart: 20, earliestStart: 18, latestFinish: 34, status: "recommended" as const };
+    const base = eventScenario("protect", [first, second]);
+    const event = { ...base.events[0], windowStart: 20, windowEnd: 24, requestedFlexibilityKW: 4 };
+    const published = publishEvent({ ...base, events: [event] }, event.id);
+    expect(published.offers).toHaveLength(1);
+    expect(eventProjectedFlexibilityKW(published, event.id)).toBe(4);
+  });
+
+  it("rejects expired decisions at an injected time but keeps replay decisions deterministic", () => {
+    const base = createDemoScenario();
+    const offer = base.offers[0];
+    expect(isOfferExpired(base, offer, "2026-09-12T15:59:59+05:30")).toBe(false);
+    expect(isOfferExpired(base, offer, "2026-09-12T16:00:00+05:30")).toBe(true);
+    expect(() => decideOffer(base, offer.id, "accept", undefined, offer.version, "2026-09-12T16:00:00+05:30")).toThrow("expired");
+    // The fixed replay clock is before the seeded 16:00 expiry, regardless of
+    // the host date on which the test is run.
+    expect(() => decideOffer(base, offer.id, "accept", undefined, offer.version)).not.toThrow();
+  });
+
   it("does not publish offers for paused activities", () => {
     const scenario = createDemoScenario();
     const paused = { ...scenario, activities: scenario.activities.map((activity, index) => index === 0 ? { ...activity, status: "paused" as const } : activity), offers: [], events: scenario.events.map((event) => ({ ...event, status: "draft" as const })) };
     const published = publishEvent(paused, "event-absorb-demo");
     expect(published.offers.some((offer) => offer.activityId === paused.activities[0].id)).toBe(false);
+  });
+
+  it("uses the same participant-level eligibility rules in previews and publication", () => {
+    const scenario = createDemoScenario();
+    const event = { ...scenario.events[0], status: "draft" as const };
+    const pausedId = scenario.activities[1].id;
+    const committedId = scenario.activities[2].id;
+    const prepared = {
+      ...scenario,
+      events: [event],
+      activities: scenario.activities.map((activity) => activity.id === pausedId ? { ...activity, status: "paused" as const } : activity),
+      schedules: scenario.schedules.map((schedule) => schedule.activityId === committedId ? { ...schedule, accepted: true } : schedule),
+    };
+    const eligible = eventEligibleActivities(prepared, event);
+    const published = publishEvent(prepared, event.id);
+    expect(eligible.map((activity) => activity.id)).toEqual([scenario.activities[0].id]);
+    expect(published.offers.map((offer) => offer.activityId)).toEqual([scenario.activities[0].id]);
+  });
+
+  it("projects shifted energy independently when an event has no cash reward rate", () => {
+    const scenario = eventScenario("absorb");
+    const event = { ...scenario.events[0], rewardRatePerKWh: 0, budget: 0 };
+    const published = publishEvent({ ...scenario, events: [event] }, event.id);
+    expect(published.offers).toHaveLength(1);
+    expect(published.offers[0].rewardEstimate).toBe(0);
+    expect(eventProjectedShiftedEnergyKWh(published, event.id)).toBeGreaterThan(0);
+    expect(() => decideOffer(published, published.offers[0].id, "accept", undefined, published.offers[0].version)).not.toThrow();
   });
 
   it("rechecks the active event, budget and capacity at acceptance", () => {
@@ -170,6 +239,19 @@ describe("event orchestration", () => {
     expect(skipped.schedules[0].accepted).toBe(true);
   });
 
+  it("records an opt-out recovery gap and preserves voluntary replacement options", () => {
+    const seeded = createDemoScenario();
+    const offer = seeded.offers.find((item) => item.activityId === "activity-ev")!;
+    const accepted = decideOffer(seeded, offer.id, "accept", undefined, offer.version);
+    const recovered = repairSchedule(accepted, offer.activityId, "2026-09-12T12:00:00+05:30");
+    const released = recovered.offers.find((item) => item.id === offer.id)!;
+    expect(released.decision).toBe("override");
+    expect(recovered.schedules.find((item) => item.activityId === offer.activityId)?.accepted).toBe(false);
+    expect(recovered.recovery).toHaveLength(1);
+    expect(recovered.recovery?.[0]).toMatchObject({ eventId: offer.eventId, lostActivityId: offer.activityId, lostPowerKW: 4, unresolvedGapKW: expect.any(Number) });
+    expect(recovered.recovery?.[0].replacementOfferIds.every((id) => recovered.offers.some((item) => item.id === id && ["pending", "modify"].includes(item.decision)))).toBe(true);
+  });
+
   it("prices Protect rewards only for baseline energy removed from the peak", () => {
     const scenario = eventScenario("protect");
     const narrowPeak = { ...scenario, events: [{ ...scenario.events[0], windowStart: 21, windowEnd: 22 }] };
@@ -192,12 +274,29 @@ describe("event orchestration", () => {
     expect(() => decideOffer(constrained, offer.id, "accept", undefined, offer.version)).toThrow("equipment or site power limit");
   });
 
-  it("reports pending evidence once per accepted offer, not once per raw reading", () => {
+  it("reports pending evidence once per accepted offer until verification settles", () => {
     const base = createDemoScenario();
     const offer = base.offers[0];
     const accepted = decideOffer(base, offer.id, "accept", undefined, offer.version);
     const readings = [0, 1].map((slot) => ({ id: `reading-${slot}`, eventId: offer.eventId, activityId: offer.activityId, deviceId: "simulator", timestamp: `${accepted.date ?? "2026-09-12"}T00:0${slot}:00+05:30`, cumulativeKWh: slot, serviceComplete: false, readingKey: `key-${slot}`, data_source: "simulation" as const }));
-    expect(eventReport({ ...accepted, readings }, offer.eventId).pendingReadings).toBe(0);
+    expect(eventReport({ ...accepted, readings }, offer.eventId).pendingReadings).toBe(1);
     expect(eventReport({ ...accepted, readings: [] }, offer.eventId).pendingReadings).toBe(1);
+  });
+
+  it("validates event expiry against the deterministic scenario decision clock", () => {
+    const scenario = createDemoScenario();
+    const event = { ...scenario.events[0], status: "draft" as const, offerExpiresAt: "2026-09-12T08:00:00+05:30" };
+    expect(() => validateEvent(scenario, event)).toThrow("after the scenario decision time");
+    expect(() => publishEvent({ ...scenario, events: [event] }, event.id)).toThrow("after the scenario decision time");
+  });
+
+  it("reports the operator fields needed to reconcile an event", () => {
+    const scenario = createDemoScenario();
+    const published = publishEvent({ ...scenario, events: scenario.events.map((event) => ({ ...event, status: "draft" as const })) }, "event-absorb-demo");
+    const offer = published.offers[0];
+    const accepted = decideOffer(published, offer.id, "accept", undefined, offer.version);
+    const report = eventReport(accepted, offer.eventId);
+    expect(report).toMatchObject({ requestedKW: 10, acceptedKW: 4, verifiedKW: 0, shiftedKWh: 0, renewableAlignedConsumptionKWh: 0, participantCount: 1, pendingRewardCost: offer.rewardEstimate, disputedActivities: 0, unresolvedGapKW: 10 });
+    expect(report.peakReductionKW).toBeGreaterThanOrEqual(0);
   });
 });

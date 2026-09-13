@@ -18,6 +18,17 @@ export function indiaDate(now = new Date()): string {
   return new Date(now.getTime() + 19800 * 1000).toISOString().slice(0, 10);
 }
 
+/**
+ * The half-hour mapper needs the first hourly sample of the following IST
+ * date to interpolate the final 23:30 slot. Keep that boundary requirement
+ * inside the provider instead of relying on every caller to remember it.
+ */
+function followingIndiaDate(date: string): string {
+  const epoch = Date.parse(`${date}T00:00:00+05:30`);
+  if (!Number.isFinite(epoch)) throw new Error("A valid IST start date is required.");
+  return indiaDate(new Date(epoch + 86400000));
+}
+
 /** Weather is hourly; radiation is the preceding-hour mean. Never treat it as measured half-hour output. */
 export function mapOpenMeteoDay(payload: unknown, start: string, end: string): WeatherSlot[] {
   const { hourly } = payloadSchema.parse(payload);
@@ -53,10 +64,14 @@ export class OpenMeteoForecastProvider implements ForecastProvider {
   constructor(private readonly request: typeof fetch = fetch) {}
   async getForecast(location: ForecastLocation, start: string, end: string): Promise<WeatherSlot[]> {
     const url = new URL("https://api.open-meteo.com/v1/forecast");
+    const startDate = start.slice(0, 10);
+    // Open-Meteo's end_date is inclusive. Always request the next midnight so
+    // mapOpenMeteoDay has the hour-24 sample needed for the final half-hour.
+    const boundaryDate = followingIndiaDate(startDate);
     url.search = new URLSearchParams({
       latitude: String(location.latitude), longitude: String(location.longitude),
       hourly: "shortwave_radiation,wind_speed_80m,wind_direction_80m,temperature_2m,cloud_cover",
-      wind_speed_unit: "ms", timezone: "Asia/Kolkata", start_date: start.slice(0, 10), end_date: end.slice(0, 10),
+      wind_speed_unit: "ms", timezone: "Asia/Kolkata", start_date: startDate, end_date: boundaryDate,
     }).toString();
     const response = await this.request(url, { next: { revalidate: 900 }, signal: AbortSignal.timeout(8000) });
     if (!response.ok) throw new Error(`Weather provider returned ${response.status}.`);

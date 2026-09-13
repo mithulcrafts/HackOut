@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { createEvent } from "@/domain/events";
+import { createEvent, validateEvent } from "@/domain/events";
 import { setDemoCookie } from "@/lib/demo-cookie";
 import { getScenario, setScenario } from "@/lib/demo-store";
 import { requireOperatorAccess } from "@/lib/operator-access";
@@ -36,6 +36,14 @@ export async function POST(request: Request) {
   const session = access.session;
   const scenario = getScenario(session);
   const event = createEvent(parsed.data);
+  try {
+    // Keep the persisted draft valid for the same scenario clock and terms
+    // enforced by publish/preview. This prevents an invalid draft from
+    // reaching the event list and failing only much later at publication.
+    validateEvent(scenario, event);
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : "Invalid event terms." }, { status: 400 });
+  }
   const response = NextResponse.json({ event: setScenario(session, { ...scenario, events: [...scenario.events, event] }).events.at(-1), data_source: "simulation" }, { status: 201 });
   if (access.mode === "demo") setDemoCookie(response, session);
   return response;

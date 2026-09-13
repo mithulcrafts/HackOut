@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createDemoScenario } from "./fixtures";
-import { decideOffer } from "./events";
-import { recordSimulatedOffer, verifyScenarioOffer, verifyReadings } from "./playback";
+import { decideOffer, publishEvent } from "./events";
+import { advanceSimulatedOffer, recordSimulatedOffer, verifyScenarioOffer, verifyReadings } from "./playback";
 
 function accepted() {
   const scenario = createDemoScenario();
@@ -62,5 +62,46 @@ describe("shared simulated meter verification and settlement", () => {
     const capped = { ...scenario, events: scenario.events.map((event) => ({ ...event, budget: 2 })) };
     const checked = verifyScenarioOffer(recordSimulatedOffer(capped, offerId, "success"), offerId);
     expect(checked.rewardLedger?.[0].illustrativeRupees).toBe(2);
+  });
+
+  it("keeps verified points for a points-only event with zero cash rate", () => {
+    const base = createDemoScenario();
+    const event = { ...base.events[0], rewardRatePerKWh: 0, budget: 0, status: "draft" as const };
+    let scenario = publishEvent({ ...base, events: [event] }, event.id);
+    const offer = scenario.offers[0];
+    scenario = decideOffer(scenario, offer.id, "accept", undefined, offer.version);
+    scenario = verifyScenarioOffer(recordSimulatedOffer(scenario, offer.id, "success"), offer.id);
+    expect(scenario.rewardLedger?.[0]?.points).toBeGreaterThan(0);
+    expect(scenario.rewardLedger?.[0]?.illustrativeRupees).toBe(0);
+  });
+
+  it("advances one half-hour reading at a time and settles a complete trace", () => {
+    const { scenario: seeded, offerId } = accepted();
+    let scenario = verifyScenarioOffer(advanceSimulatedOffer(seeded, offerId, "success"), offerId);
+    expect(scenario.readings.filter((item) => item.activityId === "activity-ev")).toHaveLength(1);
+    expect(scenario.results?.[offerId].outcome).toBe("pending");
+
+    // A trace keeps the first selected outcome even if the operator changes
+    // the selector between clicks; this prevents a counter discontinuity.
+    let advances = 1;
+    while (scenario.results?.[offerId]?.outcome === "pending" && advances < 60) {
+      scenario = verifyScenarioOffer(advanceSimulatedOffer(scenario, offerId, "partial"), offerId);
+      advances += 1;
+    }
+    const readings = scenario.readings.filter((item) => item.activityId === "activity-ev");
+    expect(readings).toHaveLength(49);
+    expect(scenario.results?.[offerId].outcome).toBe("verified");
+    expect(scenario.rewardLedger?.filter((item) => item.offerId === offerId)).toHaveLength(1);
+    expect(() => advanceSimulatedOffer(scenario, offerId, "success")).toThrow("final verification result");
+  });
+
+  it("leaves a missing interval pending without locking out a later reading", () => {
+    const { scenario: seeded, offerId } = accepted();
+    const missing = advanceSimulatedOffer(seeded, offerId, "missing");
+    expect(missing.readings).toHaveLength(0);
+    const pending = verifyScenarioOffer(missing, offerId);
+    expect(pending.results?.[offerId].outcome).toBe("pending");
+    const firstReading = advanceSimulatedOffer(pending, offerId, "success");
+    expect(firstReading.readings.filter((item) => item.activityId === "activity-ev")).toHaveLength(1);
   });
 });

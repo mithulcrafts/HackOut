@@ -20,9 +20,16 @@ assert.ok(cookie, "Demo entry must establish a session");
 await reset();
 let state = await call("/api/consumer");
 assert.equal(state.availableOffers.length, 3);
+let requestedEvidenceReview = false;
 for (const choice of state.availableOffers) {
   state = await call(`/api/consumer?offerId=${choice.id}`);
   state = await action(state, "accept");
+  if (!requestedEvidenceReview) {
+    const review = await call("/api/evidence/review", { offerId: choice.id, note: "Smoke-test evidence support request" }, 201);
+    assert.equal(review.request.status, "open");
+    await call("/api/evidence/review", { offerId: choice.id }, 200);
+    requestedEvidenceReview = true;
+  }
   const pending = await call("/api/rewards");
   assert.ok(pending.entries.some((entry) => entry.offer_id === choice.id && entry.state === "pending"));
   if (choice.name === "Water heater") {
@@ -115,6 +122,10 @@ state = await action(state, "verify");
 assert.equal(state.verification.status, "verified");
 const report = await call(`/api/events/${draft.event.id}/report`);
 assert.equal(report.funnel.verified, 1);
+assert.equal(report.participantCount, 1);
+assert.ok(report.renewableAlignedConsumptionKWh > 0);
+const reportCsv = await call(`/api/events/${draft.event.id}/report?format=csv`);
+assert.match(reportCsv, /renewable_aligned_consumption_kwh/);
 const protectedDetail = await call("/api/activities/activity-ev");
 assert.ok(protectedDetail.offers.some((entry) => entry.offer.id === protect.id && entry.verification?.status === "verified"));
 await call(`/api/events/${draft.event.id}/close`, {});
@@ -136,6 +147,7 @@ state = await action(state, "verify");
 assert.equal(state.verification.status, "verified");
 await call("/api/activities", { type: "Custom", name: "Missing power", earliestStart: "10:00", latestFinish: "17:00", durationHours: 1, interruptible: false }, 400);
 await call("/api/scenarios/preview", { source: "weather", panelCapacityKW: -1 }, 400);
+await call("/api/events", { name: "Expired event", objective: "absorb", windowStart: 26, windowEnd: 30, requestedFlexibilityKW: 4, eligibleActivityTypes: ["ev"], rewardRatePerKWh: 1, budget: 20, offerExpiresAt: "2026-09-12T08:00:00+05:30" }, 400);
 await call("/api/profile", { displayName: "Smoke Participant", location: "Gandhinagar, Gujarat", userType: "EV owner", preferredLanguage: "en-IN", deviceStatus: "simulation", reminderChannel: "important_only", reminderFrequency: "important", rewardProgramOptIn: true, programmeName: "Smoke programme", siteName: "Smoke site", leaderboardOptIn: false, leaderboardAlias: "Smoke" }, 200, "PATCH");
 const savedProfile = await call("/api/profile");
 assert.equal(savedProfile.profile.reminder_channel, "important_only");

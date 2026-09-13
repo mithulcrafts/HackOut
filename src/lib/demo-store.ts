@@ -2,6 +2,8 @@ import { createDemoScenario } from "@/domain/fixtures";
 import type { Scenario } from "@/domain/types";
 const demoGlobal = globalThis as typeof globalThis & { vidyutSutraScenarios?: Map<string, Scenario> };
 const sessions = demoGlobal.vidyutSutraScenarios ??= new Map<string, Scenario>();
+/** Shared programme view used by the authenticated consumer and operator demo accounts. */
+export const OPERATOR_SHARED_SESSION = "operator-shared";
 export function getScenario(sessionId: string): Scenario { const existing = sessions.get(sessionId); if (existing) return existing; const scenario = createDemoScenario(); sessions.set(sessionId, scenario); return scenario; }
 export function setScenario(sessionId: string, scenario: Scenario) { sessions.set(sessionId, scenario); return scenario; }
 export function resetScenario(sessionId: string) { const scenario = createDemoScenario(); sessions.set(sessionId, scenario); return scenario; }

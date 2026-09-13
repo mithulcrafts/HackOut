@@ -6,6 +6,7 @@ vi.mock("@/lib/supabase/server", () => ({ createClient }));
 vi.mock("@/lib/demo-cookie", () => ({ readDemoSession }));
 
 import { requireOperatorAccess, resolveOperatorSession } from "./operator-access";
+import { OPERATOR_SHARED_SESSION } from "./demo-store";
 
 function authUser(user: { id: string; app_metadata?: Record<string, unknown>; user_metadata?: Record<string, unknown> } | null) {
   createClient.mockResolvedValue({ auth: { getUser: vi.fn().mockResolvedValue({ data: { user }, error: null }) } });
@@ -44,7 +45,7 @@ describe("operator access", () => {
     authUser({ id: "user-operator", app_metadata: { role: "operator" }, user_metadata: { role: "consumer" } });
     const first = await requireOperatorAccess(new Request("https://example.test/api/scenarios"));
     const second = await requireOperatorAccess(new Request("https://example.test/api/scenarios"));
-    expect(first).toEqual({ mode: "operator", userId: "user-operator", session: "operator-user-operator" });
+    expect(first).toEqual({ mode: "operator", userId: "user-operator", session: OPERATOR_SHARED_SESSION });
     expect(second).toEqual(first);
   });
 
@@ -52,7 +53,7 @@ describe("operator access", () => {
     authUser({ id: "stable-operator", app_metadata: { role: "operator" } });
     const first = await resolveOperatorSession();
     const second = await resolveOperatorSession();
-    expect(first).toEqual({ mode: "operator", session: "operator-stable-operator" });
+    expect(first).toEqual({ mode: "operator", session: OPERATOR_SHARED_SESSION });
     expect(second).toEqual(first);
   });
 });

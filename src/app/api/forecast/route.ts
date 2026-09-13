@@ -30,7 +30,7 @@ export async function GET(request: Request) {
     panelCapacityKW: query.has("panelCapacityKW") ? Number(query.get("panelCapacityKW")) : undefined,
     turbineCapacityKW: query.has("turbineCapacityKW") ? Number(query.get("turbineCapacityKW")) : undefined,
   });
-  if (!parsed.success) return NextResponse.json({ error: "Choose simulation or weather and capacities between 0 and 1000 kW." }, { status: 400 });
+  if (!parsed.success) return NextResponse.json({ error: "Choose a planning or weather forecast and capacities between 0 and 1000 kW." }, { status: 400 });
   const scenario = getScenario(access.session);
   const result = await resolveForecast(scenario, { ...parsed.data, locationName: await profileLocation(access) });
   const response = NextResponse.json({

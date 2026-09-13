@@ -15,7 +15,7 @@ const profileSchema = z.object({
 
 export async function GET() {
   const demo = await readDemoSession();
-  if (demo && (process.env.NODE_ENV !== "production" || process.env.DEMO_MODE === "true")) return NextResponse.json({ email: "demo@vidyutsutra.local", profile: getDemoProfile(demo) });
+  if (demo && (process.env.NODE_ENV !== "production" || process.env.DEMO_MODE === "true")) return NextResponse.json({ email: "participant@vidyutsutra.local", profile: getDemoProfile(demo) });
   let db;
   try { db = await createClient(); } catch { return NextResponse.json({ error: "Profile storage is not configured for this environment." }, { status: 503 }); }
   const { data: { user } } = await db.auth.getUser();

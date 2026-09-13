@@ -21,11 +21,11 @@ export function demoNotifications(session: string, scenario: Scenario): Consumer
     let message: string;
     let createdAt = `${scenario.date}T08:00:00+05:30`;
     if (offer.decision === "accept" && result?.outcome === "verified") {
-      id = `offer:${offer.id}:verified`; message = `${name} was verified. Your illustrative reward is ready to review.`; createdAt = result.createdAt;
+      id = `offer:${offer.id}:verified`; message = `${name} was verified. Your reward estimate is ready to review.`; createdAt = result.createdAt;
     } else if (offer.decision === "accept" && result?.outcome === "pending") {
       id = `offer:${offer.id}:pending-verification`; message = `We are waiting for complete readings for ${name}.`; createdAt = result.createdAt;
     } else if (offer.decision === "accept" && result) {
-      id = `offer:${offer.id}:review`; message = `${name} needs review before an illustrative reward can be released.`; createdAt = result.createdAt;
+      id = `offer:${offer.id}:review`; message = `${name} needs review before an reward estimate can be released.`; createdAt = result.createdAt;
     } else if (offer.decision === "accept") {
       id = `offer:${offer.id}:accepted`; message = `${name} is accepted for the renewable-aligned window. Complete it before the deadline.`;
     } else if (offer.decision === "skip") {
@@ -71,7 +71,7 @@ export function demoState(session: string, scenario: Scenario, selectedOfferId?:
     availableOffers: scenario.offers.map((item) => ({ id: item.id, name: scenario.activities.find((a) => a.id === item.activityId)?.name ?? "Activity", decision: item.decision })),
     offer: offer ? { id: offer.id, name: activity?.name ?? "Flexible activity", version: offer.version, decision: offer.decision === "accept" ? "accepted" : offer.decision === "skip" ? "skipped" : offer.decision === "override" ? "overridden" : "pending", baseline_start: offer.originalStart, proposed_start: offer.proposedStart, duration_slots: offer.proposedEnd - offer.proposedStart, deadline_slot: offer.deadline, required_kwh: activity?.requiredEnergyKWh ?? 0, power_kw: activity ? activity.requiredEnergyKWh / (activity.durationSlots * .5) : 0, simulation_run: Boolean(scenario.simulatedOfferIds?.includes(offer.id) || sourceReadings.length), completion_slot: completion ? (Date.parse(completion.timestamp) - midnight) / 1800000 : null } : null,
     readings, verification, rewards: demoRewardEntries(session).filter((entry) => entry.offer_id === offer?.id), notifications: demoNotifications(session, scenario),
-  }, outlook, "Shared scenario simulation · solar + wind", { allowedStarts, rewardRate: event?.rewardRatePerKWh ?? 0, rewardCap: offer?.rewardEstimate ?? 0, objective: event?.objective ?? "absorb" });
+  }, outlook, "Renewable availability estimate · solar + wind", { allowedStarts, rewardRate: event?.rewardRatePerKWh ?? 0, rewardCap: offer?.rewardEstimate ?? 0, objective: event?.objective ?? "absorb" });
 }
 
 export function redeemDemo(session: string, rewardId: string) {
@@ -91,7 +91,7 @@ async function demoAction(request: Request, allowed?: string[]) {
   const session = await getOrCreateDemoSession();
   let scenario = getScenario(session);
   const v = parsed.data;
-  if (v.command === "reset" || v.command === "seed") return demoResponse(session, resetScenario(session), "Shared demo scenario reset to its three sample activities.");
+  if (v.command === "reset" || v.command === "seed") return demoResponse(session, resetScenario(session), "The programme baseline has been restored.");
   const offer = scenario.offers.find((item) => item.id === v.offerId);
   if (!offer || v.version !== offer.version) return NextResponse.json({ error: "Offer changed. Refresh before trying again." }, { status: 409 });
   try {
@@ -110,7 +110,7 @@ function authenticatedView(state: ConsumerState, session: string) {
   const outlook = scenario.forecast.map((slot) => ({ slot: slot.index, solarKW: slot.solarKW, windKW: slot.windKW, renewableKW: slot.renewableKW }));
   const offer = scenario.offers.find((item) => item.activityId === "activity-ev") ?? scenario.offers[0];
   const event = offer ? scenario.events.find((item) => item.id === offer.eventId) : undefined;
-  return consumerView(state, outlook, "Shared scenario simulation · solar + wind", { allowedStarts: [26, 27, 28], rewardRate: event?.rewardRatePerKWh ?? 1.5, rewardCap: offer?.rewardEstimate ?? 12, objective: event?.objective ?? "absorb" });
+  return consumerView(state, outlook, "Renewable availability estimate · solar + wind", { allowedStarts: [26, 27, 28], rewardRate: event?.rewardRatePerKWh ?? 1.5, rewardCap: offer?.rewardEstimate ?? 12, objective: event?.objective ?? "absorb" });
 }
 
 export async function readConsumer(request?: Request) {
@@ -119,7 +119,7 @@ export async function readConsumer(request?: Request) {
   let db;
   try { db=await createClient(); } catch { return NextResponse.json({error:"Consumer storage is not configured for this environment."},{status:503}); }
   const {data:{user}}=await db.auth.getUser();
-  if(!user) return NextResponse.json({error:"Sign in to use your consumer demo."},{status:401});
+  if(!user) return NextResponse.json({error:"Sign in to view your activities."},{status:401});
   const {data,error}=await db.rpc("consumer_snapshot");
   if(error) return NextResponse.json({error:"Consumer storage is unavailable. Please retry."},{status:503});
   let session: string;

@@ -48,7 +48,7 @@ export async function POST(request: Request) {
     const domainType = demoTypes[v.type];
     if (!domainType) return NextResponse.json({ error: "Choose a supported flexible activity." }, { status: 400 });
     const earliest = slotFromTime(v.earliestStart); const latest = slotFromTime(v.latestFinish);
-    if (![earliest, latest].every(Number.isInteger) || earliest < 0 || latest > 48 || latest <= earliest) return NextResponse.json({ error: "Use 30-minute times within the simulated day." }, { status: 400 });
+    if (![earliest, latest].every(Number.isInteger) || earliest < 0 || latest > 48 || latest <= earliest) return NextResponse.json({ error: "Use 30-minute times within the operating day." }, { status: 400 });
     const power = v.powerKW ?? activityDefaults[v.type as keyof typeof activityDefaults]?.power;
     if (!power) return NextResponse.json({ error: "Enter the expected power for this activity." }, { status: 400 });
     const activity: DomainActivity = { id: `activity-${crypto.randomUUID()}`, name: v.name, type: domainType, requiredEnergyKWh: Number((power * v.durationHours).toFixed(2)), earliestStart: earliest, latestFinish: latest, powerLimitKW: power, durationSlots: Math.round(v.durationHours * 2), interruptible: v.interruptible, baselineStart: earliest, status: "recommended" };

@@ -7,6 +7,7 @@ import { classifyBalance, dispatchBattery } from "@/domain/scheduling/engine";
 import { effectiveSchedules, summarizeScenario } from "@/domain/summary";
 import { OperatorAnalytics } from "./operator-analytics";
 import { OperatorNav } from "./operator-nav";
+import { createClient as createSupabaseClient } from "@/lib/supabase/client";
 
 const FOCUS_SLOT = 26;
 
@@ -20,6 +21,16 @@ export function OperatorDashboard({ scenario, summary }: { scenario: Scenario; s
       .then((body) => { if (!active) return; setLiveScenario((current) => ({ ...current, forecast: body.forecast, data_source: body.data_source })); setSourceStatus(`${body.metadata?.provider ?? "Forecast provider"}${body.metadata?.fallback ? " · fallback" : ""}`); })
       .catch(() => { if (active) setSourceStatus("Configured scenario · live provider unavailable"); });
     return () => { active = false; };
+  }, []);
+  useEffect(() => {
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) return;
+    let client: ReturnType<typeof createSupabaseClient>;
+    try { client = createSupabaseClient(); } catch { return; }
+    const channel = client.channel("operator-live-updates")
+      .on("postgres_changes", { event: "*", schema: "public", table: "operator_events" }, () => window.location.reload())
+      .on("postgres_changes", { event: "*", schema: "public", table: "operator_scenarios" }, () => window.location.reload())
+      .subscribe();
+    return () => { void client.removeChannel(channel); };
   }, []);
   const effective = effectiveSchedules(liveScenario);
   const balances = classifyBalance(liveScenario.forecast, effective, liveScenario.sitePowerLimitKW);

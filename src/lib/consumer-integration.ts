@@ -1,6 +1,6 @@
 import type { MeterReading, Offer, Scenario, VerificationResult } from "@/domain/types";
 import type { ConsumerState } from "./consumer";
-import { getScenario, setScenario } from "./demo-store";
+import { getScenario, setScenario, OPERATOR_SHARED_SESSION } from "./demo-store";
 
 function timestampForSlot(date: string, slot: number) {
   const day = new Date(`${date}T00:00:00Z`);
@@ -26,6 +26,7 @@ function decisionFor(state: ConsumerState["offer"]) {
 export async function syncConsumerToOperator(_command: string, state: ConsumerState, userId: string) {
   if (!userId) throw new Error("Authenticated user is required for operator projection.");
   const session = `operator-${userId}`;
+  const persist = (next: Scenario) => { setScenario(session, next); setScenario(OPERATOR_SHARED_SESSION, next); return next; };
   const scenario = getScenario(session);
   const operatorOffer = scenario.offers.find((offer) => offer.activityId === "activity-ev") ?? scenario.offers[0];
   if (!operatorOffer) return session;
@@ -35,7 +36,7 @@ export async function syncConsumerToOperator(_command: string, state: ConsumerSt
   delete keptResults[operatorOffer.id];
   const keptLedger = (scenario.rewardLedger ?? []).filter((entry) => entry.offerId !== operatorOffer.id);
   if (!state.offer) {
-    setScenario(session, { ...scenario, readings: keptReadings, results: keptResults, rewardLedger: keptLedger, simulatedOfferIds: (scenario.simulatedOfferIds ?? []).filter((id) => id !== operatorOffer.id), offers: scenario.offers.map((offer) => offer.id === operatorOffer.id ? { ...offer, decision: "pending", status: "recommended", proposedStart: offer.originalStart, proposedEnd: offer.originalStart + (offer.proposedEnd - offer.proposedStart), version: offer.version + 1 } : offer), schedules: scenario.schedules.map((schedule) => schedule.activityId === operatorOffer.activityId ? { ...schedule, startSlot: operatorOffer.originalStart, endSlot: operatorOffer.originalStart + (operatorOffer.proposedEnd - operatorOffer.proposedStart), accepted: false, version: schedule.version + 1 } : schedule), activities: scenario.activities.map((activity) => activity.id === operatorOffer.activityId ? { ...activity, status: "recommended" } : activity) });
+    persist({ ...scenario, readings: keptReadings, results: keptResults, rewardLedger: keptLedger, simulatedOfferIds: (scenario.simulatedOfferIds ?? []).filter((id) => id !== operatorOffer.id), offers: scenario.offers.map((offer) => offer.id === operatorOffer.id ? { ...offer, decision: "pending", status: "recommended", proposedStart: offer.originalStart, proposedEnd: offer.originalStart + (offer.proposedEnd - offer.proposedStart), version: offer.version + 1 } : offer), schedules: scenario.schedules.map((schedule) => schedule.activityId === operatorOffer.activityId ? { ...schedule, startSlot: operatorOffer.originalStart, endSlot: operatorOffer.originalStart + (operatorOffer.proposedEnd - operatorOffer.proposedStart), accepted: false, version: schedule.version + 1 } : schedule), activities: scenario.activities.map((activity) => activity.id === operatorOffer.activityId ? { ...activity, status: "recommended" } : activity) });
     return session;
   }
 
@@ -54,6 +55,6 @@ export async function syncConsumerToOperator(_command: string, state: ConsumerSt
   const reward = state.rewards.find((entry) => entry.state !== "pending");
   if (reward && ![reward.points, reward.illustrative_rupees].every((value) => Number.isFinite(value) && value >= 0)) throw new Error("Consumer snapshot contains an invalid reward.");
   const rewardLedger = reward ? [...keptLedger, { id: `consumer-${session}-${reward.id}`, offerId: updatedOffer.id, points: reward.points, illustrativeRupees: reward.illustrative_rupees, state: reward.state === "redeemable" ? "redeemable" as const : "verified" as const, createdAt: reward.created_at }] : keptLedger;
-  setScenario(session, { ...scenario, offers: scenario.offers.map((offer) => offer.id === operatorOffer.id ? updatedOffer : offer), schedules, readings: [...keptReadings, ...incomingReadings], results, rewardLedger, simulatedOfferIds: offerState.simulation_run ? [...new Set([...(scenario.simulatedOfferIds ?? []), updatedOffer.id])] : (scenario.simulatedOfferIds ?? []).filter((id) => id !== updatedOffer.id), activities: scenario.activities.map((activity) => activity.id === operatorOffer.activityId ? { ...activity, name: offerState.name, baselineStart: offerState.baseline_start, durationSlots: offerState.duration_slots, latestFinish: offerState.deadline_slot, powerLimitKW: offerState.power_kw, requiredEnergyKWh: offerState.required_kwh, status: verification?.status === "verified" ? "verified" : verification?.status === "failed" ? "failed" : decision === "accept" ? "accepted" : decision === "skip" ? "skipped" : "recommended" } : activity) });
+  persist({ ...scenario, offers: scenario.offers.map((offer) => offer.id === operatorOffer.id ? updatedOffer : offer), schedules, readings: [...keptReadings, ...incomingReadings], results, rewardLedger, simulatedOfferIds: offerState.simulation_run ? [...new Set([...(scenario.simulatedOfferIds ?? []), updatedOffer.id])] : (scenario.simulatedOfferIds ?? []).filter((id) => id !== updatedOffer.id), activities: scenario.activities.map((activity) => activity.id === operatorOffer.activityId ? { ...activity, name: offerState.name, baselineStart: offerState.baseline_start, durationSlots: offerState.duration_slots, latestFinish: offerState.deadline_slot, powerLimitKW: offerState.power_kw, requiredEnergyKWh: offerState.required_kwh, status: verification?.status === "verified" ? "verified" : verification?.status === "failed" ? "failed" : decision === "accept" ? "accepted" : decision === "skip" ? "skipped" : "recommended" } : activity) });
   return session;
 }

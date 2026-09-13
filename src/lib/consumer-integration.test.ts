@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createDemoScenario } from "@/domain/fixtures";
 import type { ConsumerState } from "./consumer";
 import { syncConsumerToOperator } from "./consumer-integration";
-import { getScenario, setScenario } from "./demo-store";
+import { getScenario, setScenario, OPERATOR_SHARED_SESSION } from "./demo-store";
 
 const acceptedState: ConsumerState = {
   offer: { id: "db-offer", name: "Scooter", version: 2, decision: "accepted", baseline_start: 20, proposed_start: 26, duration_slots: 4, deadline_slot: 34, required_kwh: 8, power_kw: 4, simulation_run: true, completion_slot: 30 },
@@ -26,6 +26,15 @@ describe("authenticated consumer projection", () => {
     expect(firstScenario.activities.find((entry) => entry.id === "activity-ev")).toMatchObject({ baselineStart: 20, durationSlots: 4, powerLimitKW: 4, requiredEnergyKWh: 8 });
     expect(secondScenario.readings).toHaveLength(0);
     expect(secondScenario.rewardLedger ?? []).toHaveLength(0);
+  });
+
+  it("publishes the consumer projection to the authenticated operator programme view", async () => {
+    await syncConsumerToOperator("load", acceptedState, "consumer-account");
+    const operatorScenario = getScenario(OPERATOR_SHARED_SESSION);
+    expect(operatorScenario.offers.find((offer) => offer.activityId === "activity-ev")).toMatchObject({ decision: "accept", proposedStart: 26 });
+    expect(operatorScenario.readings).toHaveLength(2);
+    expect(operatorScenario.results?.[operatorScenario.offers[0].id]?.outcome).toBe("verified");
+    expect(operatorScenario.rewardLedger?.[0]).toMatchObject({ points: 80, illustrativeRupees: 4, state: "verified" });
   });
 
   it("does not invent readings or rewards when the authoritative snapshot has none", async () => {

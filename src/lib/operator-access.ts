@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { readDemoSession } from "@/lib/demo-cookie";
 import { isDemoSessionId } from "@/lib/demo-session-id";
+import { OPERATOR_SHARED_SESSION } from "./demo-store";
 
 const DEMO_COOKIE = "hackout_demo_session";
 
@@ -34,7 +35,7 @@ function isExplicitDemoRequest(request: Request) {
  * in-memory scenario is deliberately available through an explicit demo
  * request (query flag or demo cookie) or an authenticated operator role;
  * production requests must have an authenticated operator role. Operators receive an isolated
- * simulation namespace; a persistent store can replace that namespace later
+ * shared programme namespace; a persistent store can replace that namespace later
  * without changing the authorization boundary.
  */
 export async function requireOperatorAccess(request: Request): Promise<OperatorAccess> {
@@ -65,13 +66,13 @@ export async function requireOperatorAccess(request: Request): Promise<OperatorA
     return { mode: "error", response: NextResponse.json({ error: "Operator role required." }, { status: 403 }) };
   }
 
-  return { mode: "operator", userId: data.user.id, session: `operator-${data.user.id}` };
+  return { mode: "operator", userId: data.user.id, session: OPERATOR_SHARED_SESSION };
 }
 
 /**
  * Resolve the namespace used by server-rendered operator pages. This mirrors
  * requireOperatorAccess without a Request object, so an authorized operator
- * sees the same session across page loads instead of a newly generated demo
+ * sees the same programme session across page loads instead of a newly generated
  * scenario on every request.
  */
 export async function resolveOperatorSession(): Promise<{ mode: "demo" | "operator"; session: string } | null> {
@@ -84,7 +85,7 @@ export async function resolveOperatorSession(): Promise<{ mode: "demo" | "operat
     const db = await createClient();
     const { data, error } = await db.auth.getUser();
     if (error || !data.user || data.user.app_metadata?.role !== "operator") return null;
-    return { mode: "operator", session: `operator-${data.user.id}` };
+    return { mode: "operator", session: OPERATOR_SHARED_SESSION };
   } catch {
     return null;
   }

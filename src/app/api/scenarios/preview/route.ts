@@ -17,7 +17,7 @@ const previewSchema = forecastOptionsSchema.extend({
 });
 
 async function profileLocation(access: { mode: "demo" | "operator"; session: string; userId?: string }) {
-  if (access.mode === "demo") return getDemoProfile(access.session).location;
+  if (access.mode === "demo") return getDemoProfile(access.session).location || "Gandhinagar, Gujarat";
   try {
     const db = await createClient();
     const { data: { user } } = await db.auth.getUser();
@@ -48,3 +48,4 @@ export async function POST(request: Request) {
   if (access.mode === "demo") setDemoCookie(response, access.session);
   return response;
 }
+

@@ -9,7 +9,7 @@ import { requireOperatorAccess } from "@/lib/operator-access";
 import { getDemoProfile } from "@/lib/demo-preferences";
 
 async function profileLocation(access: { mode: "demo" | "operator"; session: string; userId?: string }) {
-  if (access.mode === "demo") return getDemoProfile(access.session).location;
+  if (access.mode === "demo") return getDemoProfile(access.session).location || "Gandhinagar, Gujarat";
   try {
     const db = await createClient();
     const { data: { user } } = await db.auth.getUser();
@@ -41,3 +41,4 @@ export async function GET(request: Request) {
   if (access.mode === "demo") setDemoCookie(response, access.session);
   return response;
 }
+

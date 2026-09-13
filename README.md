@@ -10,6 +10,13 @@ Electricity demand does not wait for the sun. An EV is plugged in when its owner
 
 Built by **Commit Crew — Nama Mithul and Rohinth S** for **HackOut’26 at DA-IICT / Dhirubhai Ambani University, Gandhinagar**.
 
+## Live deployment
+
+- **Production app:** [VidyutSutra on Vercel](https://vidyutsutra-pzrjkox86-rohinths-projects-137795ca.vercel.app/)
+- **Consumer experience:** [Open the consumer flow](https://vidyutsutra-pzrjkox86-rohinths-projects-137795ca.vercel.app/consumer/today?demo=1)
+
+The links above are publicly accessible and point to the latest verified production deployment.
+
 ---
 
 ## Why timing matters

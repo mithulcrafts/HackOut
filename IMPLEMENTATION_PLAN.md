@@ -1,6 +1,6 @@
 # HackOut’26 Implementation Plan
 
-> **Implementation status — 13 September 2026:** The integrated local demo now shares the Teammate A scenario across consumer offers, activity editing and lifecycle controls, operator events, meter playback, verification, rewards and in-app notifications. Absorb/Protect scheduling, battery guidance, what-if preview, reports, solar/wind estimator boundaries, ranked operator guidance and a forecast evaluation lab are implemented. Consumer presets also cover washing machine, dishwasher, irrigation pump, pool pump, cold-storage pre-cooling and e-bike charging. A no-hardware evidence-review path accepts a strict meter/charger CSV for untrusted assessment and never releases a reward. Consumer onboarding stores programme, site, reminder and reward preferences; the Today screen includes timing explanation and a daily plan. Authenticated Supabase consumer actions are projected into a shared in-memory operator programme namespace, so an authorised operator account can see the same running-session commitments and evidence. Open-Meteo weather previews and an account-scoped consumer mirror are integrated. A manifest and lightweight service-worker shell support installability where available; offline mutations are not supported. Live utility/device/payment integration, trusted meter adapters and production forecast training remain follow-on work. Use [the current workflow verification](docs/WORKFLOW_VERIFICATION.md) for the implemented scope and deployment gaps.
+> **Implementation status — 13 September 2026:** The integrated application shares a scenario-backed programme across consumer offers, activity editing and lifecycle controls, operator events, meter playback, verification, rewards and in-app notifications. Absorb/Protect scheduling, battery guidance, what-if preview, reports, solar/wind estimator boundaries, ranked operator guidance and a forecast evaluation lab are implemented. Consumer presets also cover washing machine, dishwasher, irrigation pump, pool pump, cold-storage pre-cooling and e-bike charging. A no-hardware evidence-review path accepts a strict meter/charger CSV for untrusted assessment and never releases a reward. Consumer onboarding stores programme, site, reminder and reward preferences; the Today screen includes timing explanation and a daily plan. Authenticated Supabase consumer actions are projected into a shared in-memory operator programme namespace, so an authorised operator account can see the same running-session commitments and evidence. Open-Meteo weather previews and an account-scoped consumer mirror are integrated. A manifest and lightweight service-worker shell support installability where available; offline mutations are not supported. Live utility/device/payment integration, trusted meter adapters and production forecast training remain follow-on work. Use [the current workflow verification](docs/WORKFLOW_VERIFICATION.md) for the implemented scope and deployment gaps.
 
 ## 1. Product scope
 
@@ -10,10 +10,10 @@ The single product flow is:
 
 ```
 Renewable estimate → surplus/shortage detection → personalised offer
-→ user decision → schedule/reminder → simulated/device reading → verification → points/reward
+→ user decision → schedule/reminder → provider or scenario reading → verification → points/reward
 ```
 
-The prototype coordinates flexible demand. It recommends storage, backup review and curtailment review to an authorised operator; it does not control generators, curtailment or real grid equipment. Solar and wind are used for the first demonstration, while the provider interface can later accept hydro, biomass or other scheduled renewable sources. All simulated generation, readings and illustrative rewards are labelled clearly.
+The application coordinates flexible demand. It recommends storage, backup review and curtailment review to an authorised operator; it does not control generators, curtailment or real grid equipment. Solar and wind are used for the first release, while the provider interface can later accept hydro, biomass or other scheduled renewable sources. Scenario generation, readings and reward values carry a concise estimate or programme disclosure wherever they are shown.
 
 The user-facing promise is: **tell us what must be done and by when; we find a useful time, show the reward and verify the result.** The forecasting module supports this demand-response experience; it is not presented as a second product.
 
@@ -26,9 +26,9 @@ Next.js App Router + TypeScript
 ├── React consumer and operator screens
 ├── Next.js Route Handlers for server operations
 ├── Supabase Auth, Postgres and Row Level Security
-├── Forecast provider (simulation first, public weather later)
+├── Forecast provider (scenario fallback, public weather when available)
 ├── Renewable estimation and scheduling modules
-├── Meter simulator with a future device-adapter contract
+├── Scenario reading provider with a future device-adapter contract
 ├── Verification, points and reward ledger
 └── Event, notification and audit modules
 ```
@@ -37,13 +37,13 @@ Next.js App Router route handlers in `app/api/**/route.ts` are the backend bound
 
 Use `pnpm`, TypeScript strict mode, Zod for request validation, Recharts for graphs and Vitest for domain tests. Use `shadcn/ui` components installed into the repository, Tailwind CSS, Lucide React icons, `next-themes` for dark mode and `date-fns` for slot formatting. Use `sonner` for action feedback and `framer-motion` only for the single dashboard entrance and offer-state transition. Do not add a separate Python server, microservices, queue or optimisation package during the MVP.
 
-## 3. Fixed simulation contract
+## 3. Scenario data contract
 
-- One simulated day with 48 half-hour slots.
+- One operating day with 48 half-hour planning slots when no approved provider is connected.
 - Timezone: `Asia/Kolkata`.
 - Energy is kWh; limits and demand are kW.
 - Renewable sources initially: solar and wind.
-- Scenario contains renewable generation, fixed demand, activities and one battery.
+- Scenario data contains renewable estimates, fixed demand, activities and one battery.
 - Every generated value includes a `data_source` field: `simulation`, `weather_estimate` or `device_reading`.
 
 Shared types in `src/domain/types.ts`:
@@ -87,9 +87,9 @@ Enable RLS on every exposed table. Consumers read their own activities, offers, 
 
 Use Supabase email/password authentication with `@supabase/ssr`. Create a profile row after signup. Add middleware to refresh the session and protect `/consumer` and `/operator`. Check the role again in every server operation; never rely only on hiding a button in React.
 
-### 5.2 Scenario seed, programme events and simulation controls
+### 5.2 Scenario-backed programme events
 
-Implement `POST /api/scenarios/seed`. It creates one deterministic scenario, 48 slots, fixed demand, three activities and a battery. Use a fixed random seed so the demo is repeatable. Add `POST /api/scenarios/:id/reset` to restore it. Implement a small event wizard for operators: objective, window, eligible activities, reward rate, budget and expiry. Seed one Absorb event and one Protect event.
+Create a scenario-backed programme when no approved provider is connected. It supplies 48 planning slots, fixed demand, activities and a battery using stable values so the product remains usable. Operators manage events through the normal event workflow: objective, window, eligible activities, reward rate, budget and expiry. Seed one Absorb event and one Protect event for the initial workspace; this is an implementation fallback, not a separate user mode.
 
 An event has the lifecycle `draft → active → verifying → closed` for the MVP. Every offer, accepted schedule, reading, verification and reward references its event. At publication, freeze the baseline demand and reward terms; previews and later opt-outs must never rewrite that baseline. A later release may add a separate published approval state.
 
@@ -106,7 +106,7 @@ GET  /api/events/:id/participants aggregate participant status
 
 The event report is the shared source for the consumer history and operator dashboard.
 
-The operator simulation panel edits renewable multiplier, demand multiplier, acceptance rate, reward rate and battery capacity. `POST /api/scenarios/:id/preview` calculates against an in-memory copy and does not modify accepted offers.
+Internal scenario preview endpoints may remain available for engineering checks, but they are not linked from the product navigation and never appear as user-facing controls.
 
 ### 5.3 Consumer activity creation
 
@@ -170,11 +170,11 @@ Implement a pure `dispatchBattery()` function with capacity, current energy, cha
 
 Implement `POST /api/meter-readings` accepting event ID, device ID, activity ID, timestamp, cumulative kWh, service/process-complete flag, source and unique reading key. Reject unauthenticated devices and duplicate keys.
 
-Build a simulator that advances one slot at a time and emits successful, partial, overridden and missing-reading cases. A future charger, smart plug or sub-meter adapter submits the same payload. Whole-home bills are not sufficient for appliance-level slot verification.
+Use a scenario reading provider when no approved device is connected so the end-to-end flow remains usable. A future charger, smart plug or sub-meter adapter submits the same payload; the adapter can replace the provider without changing verification. Whole-home bills are not sufficient for appliance-level slot verification.
 
 ### 5.11 Verification
 
-Implement `verifyActivity(activityId)` on the server. Derive interval energy from cumulative readings, compare the frozen baseline window with the accepted window, check required energy and deadline, and classify the result as verified, partial or failed. Do not reward a manual completion click without readings; simulation controls must be labelled as such.
+Implement `verifyActivity(activityId)` on the server. Derive interval energy from cumulative readings, compare the frozen baseline window with the accepted window, check required energy and deadline, and classify the result as verified, partial or failed. A completion action only submits or reviews evidence; rewards are released after the reading trace passes verification.
 
 ### 5.12 Rewards, points and leaderboard
 
@@ -213,19 +213,19 @@ The operator dashboard contains:
 
 Use colour and text together: amber for Absorb, coral for Protect, blue for accepted and violet for verified. Add tooltips with exact slot time and units. Include an accessible table below each important chart so the demo remains understandable without relying on colour.
 
-Consumer pages: Today, Activities, Offers, Rewards/Impact and Profile. The activity detail page contains schedule and verification evidence. Operator pages use the charts above, Supabase subscriptions for refreshes and a reset button for the deterministic demo. The operator event page contains event creation, participant status, verification, budget and report export.
+Consumer pages: Today, Activities, Offers, Rewards/Impact and Profile. The activity detail page contains schedule and verification evidence. Operator pages use the charts above and normal event, evidence, reward and report workflows. Scenario fallback data is disclosed in the relevant source note; there is no demo or reset control in the product journey. The operator event page contains event creation, participant status, verification, budget and report export.
 
-Current consumer detail implementation (12 September): saved activity links open `/consumer/activities/[id]`. Its authenticated API returns saved requirements and only offers linked to that activity, with their meter readings, verification and reward records. Every query is scoped to the signed-in owner. Unscheduled activities show an explicit empty state; the separate EV simulation cannot verify an unrelated custom activity. The Profile form contains account information, display name, location, user type and simulated device status; the preferred flexible activity selector has been removed. Existing stored preference values are left untouched. Custom-activity scheduling still requires integration with the scheduling track.
+Current consumer detail implementation (12 September): saved activity links open `/consumer/activities/[id]`. Its authenticated API returns saved requirements and only offers linked to that activity, with their meter readings, verification and reward records. Every query is scoped to the signed-in owner. Unscheduled activities show an explicit empty state; custom activities follow the same scheduling and evidence contract as presets. The Profile form contains account information, display name, location, user type and connection status; the preferred flexible activity selector has been removed. Existing stored preference values are left untouched. Custom-activity scheduling still requires integration with the scheduling track.
 
-The consumer track now includes a reusable event surface on Today and Offers: accept, modify, skip, override, simulator outcomes (success, partial, missing, late and rebound), verification retry/error states, in-app notifications and an explicit demo reset. Rewards are read from the ledger and verification records, can be released to a simulated redeemable wallet idempotently, and show a verified-impact chart. The optional leaderboard is opt-in and uses an alias plus verified/accepted reliability; it does not expose names or rank total consumption. Renewable outlook and baseline/accepted schedule charts use a clearly labelled deterministic fixture until Teammate A's forecast contract is connected. A Supabase-backed session proxy, loading/error/offline states and consumer route error boundary are in place. The additive consumer completion migration is `20260912220000_consumer_completion.sql`; it is applied to the configured Supabase project.
+The consumer track now includes a reusable event surface on Today and Offers: accept, modify, skip, override, completion submission, verification retry/error states and in-app notifications. Rewards are read from the ledger and verification records, can be released to the wallet idempotently, and show a verified-impact chart. The optional leaderboard is opt-in and uses an alias plus verified/accepted reliability; it does not expose names or rank total consumption. Renewable outlook and baseline/accepted schedule charts use a clearly labelled deterministic fixture until Teammate A's forecast contract is connected. A Supabase-backed session proxy, loading/error/offline states and consumer route error boundary are in place. The additive consumer completion migration is `20260912220000_consumer_completion.sql`; it is applied to the configured Supabase project.
 
-### 5.14 Playback demonstration
+### 5.14 Evidence review
 
-Add `Advance 30 minutes`. It generates the next simulated meter readings, runs verification and refreshes charts. The seeded script must demonstrate one successful verification and one opt-out recovery without internet access.
+When an accepted activity is completed, the consumer submits its completion and the operator reviews the available reading trace. An approved device provider can supply the trace in production; until then the scenario provider supplies a labelled planning trace so verification, points and the operator view remain functional. Review is idempotent and never exposes outcome or reset controls to users.
 
 ## 6. Delivery phases
 
-The hackathon delivery is intentionally limited to two phases. The application should feel like one usable product; seeded values are an implementation fallback and must not appear as a separate “demo mode” in the main consumer journey.
+The hackathon delivery is intentionally limited to two phases. The application should feel like one usable product; scenario values are an implementation fallback and must not appear as a separate “demo mode” in the main consumer journey.
 
 **Phase 1 — Product foundation (complete):** authentication, profiles, activities, seeded renewable-aligned recommendations, scheduling, accept/modify/skip/override, server-side verification using controlled readings, points/reward ledger, notifications and consumer/operator summaries.
 
@@ -367,13 +367,13 @@ The first screen must answer: “What should I do now, and what do I get?” Use
 /operator/verification readings, exceptions and review queue
 /operator/rewards      budget, ledger and programme settlement preview
 /operator/reports      event outcomes and CSV export
-/operator/simulation   controls, playback and reset
+/operator/evidence      accepted activity readings and verification review
 /operator/settings     site limits, source capacities and reward budget
 ```
 
 ### Cross-cutting states
 
-Implement loading, empty, error, offline and no-valid-window states for every route. Add a global error boundary and route-level `loading.tsx`. Provide a demo-mode banner showing whether values are simulated, weather-estimated or device-supplied.
+Implement loading, empty, error, offline and no-valid-window states for every route. Add a global error boundary and route-level `loading.tsx`. Show a concise source note where values are scenario estimates, weather estimates or device-supplied.
 
 ## 12. External resources and dependency rules
 
@@ -401,7 +401,7 @@ Every Codex session starts by reading `AGENTS.md`, this plan and the current Git
 
 Use one branch per teammate and feature-named commits. Pull/rebase before integration. Never force-push or reset shared history. A change to `src/domain/types.ts`, migrations, API examples, design tokens or shared UI primitives requires a short written note in the commit and an update to the relevant section of this plan. When an external API is unavailable, retain the provider interface and deterministic fixture; never block the rest of the application.
 
-## 14. Final demo script
+## 14. Final product walkthrough
 1. Open the mobile consumer Today screen and show the day pulse in Absorb mode.
 2. Show an EV offer with original and proposed schedule, deadline and illustrative reward.
 3. Accept the offer and show the schedule update.
@@ -409,16 +409,16 @@ Use one branch per teammate and feature-named commits. Pull/rebase before integr
 5. Open the operator overview and show accepted versus verified flexibility and the read-only grid action recommendation.
 6. If stretch features are complete, override a second offer, show recovery, then run Protect mode and What-if preview.
 
-The demo must remain understandable if real weather, hardware and payment services are unavailable.
+The walkthrough must remain understandable if real weather, hardware and payment services are unavailable.
 
 ## 15. Teammate A scaffold contract (12 September 2026)
 
 - This branch establishes the first shared types, fixtures and UI primitives; no prior implementation exists to reuse. B should consume these contracts for consumer and trust features.
-- The initial runnable A prototype uses a clearly labelled, per-browser demo session in one local Node.js process. It works without weather, Supabase or payment network calls after installation/build; browser access to the local server is still required. Restarting the server clears demo sessions. The app exposes a manifest and lightweight service-worker shell, but private data and mutations still require an online connection.
+- The initial runnable A implementation uses a clearly labelled, per-browser scenario session in one local Node.js process. It works without weather, Supabase or payment network calls after installation/build; browser access to the local server is still required. Restarting the server clears scenario sessions. The app exposes a manifest and lightweight service-worker shell, but private data and mutations still require an online connection; this is not a production persistence/auth replacement.
 - Supabase Auth, durable persistence, RLS and migrations remain joint Phase 0 integration work; no shared database has been created or modified in this task. Consumer authentication and verification/reward processing remain B-owned.
 - All initial values use the contract field `data_source`. Slots are indices 0–47, with end-exclusive boundaries up to 48, representing slot-average kW in Asia/Kolkata. Activity energy is `requiredEnergyKWh`; scheduled power is energy divided by duration, capped by the device limit.
 - The frozen baseline includes each flexible activity once. Recommended schedules are projections; only accepted reservations alter committed demand. An unchanged recommended window has zero eligible shift/reward. All operator capacity summaries state whether they are peak or event-average kW.
-- Demo operator actions are scoped to an opaque HTTP-only session cookie and same-origin requests. Production use of the memory adapter requires explicit `DEMO_MODE=true`; no real accounts, meter credentials or payments are accepted.
+- Scenario fallback actions are scoped to an opaque HTTP-only session cookie and same-origin requests. Production use of the memory adapter requires explicit `DEMO_MODE=true`; no real accounts, meter credentials or payments are accepted.
 - Initial dependency purposes: Next.js/React for the single app; Tailwind and shadcn/Radix for accessible primitives; Lucide for icons; Recharts for typed operator charts; Zod for request boundaries; sonner for action feedback; Vitest for domain/API behavior. pnpm is the repository package manager. Motion, theming and date libraries are added only when used.
-- Stable A-track fixture endpoints are `GET /api/forecast` (forecast plus balance classification), `GET /api/scenarios` (scenario, balance, battery and summary), `POST /api/scenarios/seed`, `POST /api/scenarios/reset`, `POST /api/scenarios/preview`, and `POST /api/scenarios/playback`. Event lifecycle endpoints are listed in section 5.2 and operate on the same session-scoped demo scenario.
+- Stable A-track fixture endpoints are `GET /api/forecast` (forecast plus balance classification), `GET /api/scenarios` (scenario, balance, battery and summary), `POST /api/scenarios/seed`, `POST /api/scenarios/reset`, `POST /api/scenarios/preview`, and `POST /api/scenarios/playback`. Event lifecycle endpoints are listed in section 5.2 and operate on the same session-scoped scenario.
 

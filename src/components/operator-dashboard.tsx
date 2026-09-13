@@ -18,6 +18,7 @@ export function OperatorDashboard({ scenario, summary }: { scenario: Scenario; s
   const currentDemand = currentForecast ? currentForecast.fixedDemandKW + effective.filter((entry) => entry.accepted && current.slot >= entry.startSlot && current.slot < entry.endSlot).reduce((sum, entry) => sum + entry.powerKW, 0) : 0;
   const capacityBreach = currentDemand > scenario.sitePowerLimitKW;
   const peakChange = summary.baselinePeakKW > 0 ? Math.round((1 - summary.scheduledPeakKW / summary.baselinePeakKW) * 100) : 0;
+
   const flexibleAvailable = scenario.activities.filter((activity) => !["accepted", "completed", "verified", "failed", "paused"].includes(activity.status)).length;
   const budgetTotal = scenario.events.reduce((sum, event) => sum + event.budget, 0);
   const budgetSpent = (scenario.rewardLedger ?? []).reduce((sum, entry) => sum + entry.illustrativeRupees, 0);
@@ -47,9 +48,10 @@ export function OperatorDashboard({ scenario, summary }: { scenario: Scenario; s
           <div className="card"><div className="label">Storage posture</div><div className="metric green" style={{ fontSize: "1.25rem" }}>{storagePoint?.action === "charge" ? "Charge" : storagePoint?.action === "discharge" ? "Discharge" : "Ready"}</div><div className="muted">{scenario.battery.currentKWh.toFixed(1)} / {scenario.battery.capacityKWh} kWh</div></div>
         </section>
         <OperatorAnalytics scenario={scenario} schedules={effective} battery={battery} />
-        <p className="footer">Peak change: <strong>{peakChange}%</strong> against the frozen baseline. Data source: <strong>Simulation</strong>. Operator recommendations are read-only until approved utility integrations exist.</p>
+        <p className="footer">Peak change: <strong>{peakChange}%</strong> against the frozen baseline. Data source: <strong>estimated programme records</strong>. Operator recommendations are read-only until approved utility integrations exist.</p>
       </div>
     </main>
   );
+
 }
 

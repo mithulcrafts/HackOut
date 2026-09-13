@@ -32,8 +32,10 @@ export function ActivityActions() {
 
   return <section className="schedule-card">
     <span className="section-label">METER EVIDENCE CHECK</span>
-    <h3>Try meter verification</h3>
-    <p>This checks the dedicated EV offer with controlled meter readings. Your other saved activities are not marked complete.</p>
+
+    <h3>Review meter evidence</h3>
+    <p>This checks the dedicated EV offer with a recorded meter reading. Your other saved activities are not marked complete.</p>
+
     <button type="button" className="secondary-button" disabled={busy} onClick={run}>
       {busy ? "Checking activity…" : "Check meter evidence"}
     </button>

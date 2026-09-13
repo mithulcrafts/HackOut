@@ -40,5 +40,5 @@ export async function POST(request: Request) {
   const offers = Array.isArray(snapshot.offers) ? snapshot.offers : [];
   const offer = offers.find((item: { id?: string }) => item.id === offerId);
   if (!offer || offer.decision !== "accept") return errorResponse("Choose an accepted offer from your account.", 409);
-  return errorResponse("This account has no approved meter or charger adapter yet. Uploads are retained for review only; the prototype uses a clearly labelled simulator.", 501);
+  return errorResponse("This account has no approved meter or charger connection yet. Uploaded evidence is available for review; it cannot release a reward until its source is trusted.", 501);
 }

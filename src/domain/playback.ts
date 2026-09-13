@@ -69,7 +69,7 @@ export function verifyReadings(date: string, activity: Activity, schedule: Sched
   if (completionSlot !== undefined && completionSlot > activity.latestFinish) return { ...base, outcome: "failed", recordedEnergyKWh, eligibleShiftedKWh: 0, reason: "The activity completed after its deadline. The record is retained, but no verified response is counted." };
   if (total < activity.requiredEnergyKWh * 0.95 || !completion) return { ...base, outcome: "partial", recordedEnergyKWh, eligibleShiftedKWh: 0, reason: "Only part of the required service was delivered. The activity remains unverified and no full-capacity response is counted." };
   if (inWindow < activity.requiredEnergyKWh * 0.95 || eligibleShiftedKWh <= 0) return { ...base, outcome: "failed", recordedEnergyKWh, eligibleShiftedKWh: 0, reason: "The trace does not prove an eligible change from the frozen baseline into the accepted window." };
-  return { ...base, outcome: "verified", recordedEnergyKWh, eligibleShiftedKWh, reason: "Simulated interval readings confirm the agreed energy in the accepted window, completion before the deadline and an eligible change from the baseline." };
+  return { ...base, outcome: "verified", recordedEnergyKWh, eligibleShiftedKWh, reason: "Scenario interval readings confirm the agreed energy in the accepted window, completion before the deadline and an eligible change from the baseline." };
 }
 
 export function recordSimulatedOffer(scenario: Scenario, offerId: string, outcome: PlaybackOutcome): Scenario {
@@ -77,7 +77,7 @@ export function recordSimulatedOffer(scenario: Scenario, offerId: string, outcom
   const activity = scenario.activities.find((item) => item.id === offer?.activityId);
   const schedule = scenario.schedules.find((item) => item.activityId === activity?.id && item.accepted);
   if (!offer || !activity || !schedule) throw new Error("Accept this activity before recording evidence.");
-  if (scenario.readings.some((item) => item.eventId === offer.eventId && item.activityId === activity.id)) throw new Error("Readings already exist. Verify them or reset the scenario to test another outcome.");
+  if (scenario.readings.some((item) => item.eventId === offer.eventId && item.activityId === activity.id)) throw new Error("Readings already exist. Verify them or start a new event to review another outcome.");
   const readings = simulateReadings(scenario.date, offer.eventId, activity, schedule, outcome);
   return { ...scenario, readings: [...scenario.readings, ...readings], simulatedOfferIds: [...new Set([...(scenario.simulatedOfferIds ?? []), offerId])] };
 }
@@ -157,5 +157,4 @@ export function verifyScenarioOffer(scenario: Scenario, offerId: string): Scenar
     rewardLedger: verification.outcome === "verified" && offer.rewardEligible !== false && rewardEligibleKWh > 0 && !ledger.some((entry) => entry.offerId === offerId) ? [...ledger, { id: `demo-reward-${offerId}`, offerId, points: Math.floor(rewardEligibleKWh * 15), illustrativeRupees: rupees, state: "verified", createdAt }] : ledger,
   };
 }
-
 

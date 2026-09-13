@@ -5,7 +5,7 @@ import type { Scenario } from "@/domain/types";
 import { classifyBalance } from "@/domain/scheduling/engine";
 import { effectiveSchedules } from "@/domain/summary";
 type Terms = { allowedStarts: number[]; rewardRate: number; rewardCap: number; objective: "absorb" | "protect" };
-export function consumerView(state: ConsumerState, outlook: typeof outlookFixture | Scenario = outlookFixture, outlookSource = "Simulation fixture", terms?: Terms) {
+export function consumerView(state: ConsumerState, outlook: typeof outlookFixture | Scenario = outlookFixture, outlookSource = "Planning estimate", terms?: Terms) {
   const scenario = Array.isArray(outlook) ? undefined : outlook;
   const resolvedOutlook = Array.isArray(outlook) ? outlook : outlook.forecast.map(slot => ({ slot: slot.index, solarKW: slot.solarKW, windKW: slot.windKW, renewableKW: slot.renewableKW }));
   const rewardRate = terms?.rewardRate ?? 1.5;

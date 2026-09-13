@@ -7,8 +7,7 @@ const links = [
   ["Verification", "/operator/verification"],
   ["Rewards", "/operator/rewards"],
   ["Reports", "/operator/reports"],
-  ["Simulation", "/operator/simulation"],
-  ["Forecast lab", "/operator/forecast-lab"],
+  ["Evidence", "/operator/evidence"],
   ["Settings", "/operator/settings"],
 ] as const;
 

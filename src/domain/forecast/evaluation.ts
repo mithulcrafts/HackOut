@@ -58,11 +58,26 @@ export function evaluateForecast(points: ForecastEvaluationPoint[], source: Fore
 
 /** A deterministic replay used when the public endpoint is unavailable. It is labelled simulation, never presented as measured output. */
 export function createReplayEvaluation(forecast: ForecastSlot[]): ForecastEvaluation {
-  const points = forecast.filter((slot) => slot.index % 2 === 0).map((slot, index) => {
-    const observed = Math.max(0, slot.renewableKW * (0.91 + 0.07 * Math.sin(index * 1.7)));
-    const predicted = Math.max(0, slot.renewableKW * (0.88 + 0.04 * Math.cos(index * 0.8)));
-    const baseline = Math.max(0, slot.renewableKW * 0.76);
-    return { slot: slot.index, label: slot.start, observedKW: round(observed), predictedKW: round(predicted), baselineKW: round(baseline), lowerKW: round(predicted * 0.78), upperKW: round(predicted * 1.22) };
+  // Build the synthetic observations first, then forecast each held-out point
+  // only from observations which precede it. This keeps the offline fallback a
+  // causal replay instead of letting the target slot leak into its prediction.
+  const observed = forecast.map((slot, index) => Math.max(0, slot.renewableKW * (0.91 + 0.07 * Math.sin(index * 0.83))));
+  const points = forecast.filter((slot) => slot.index >= 2 && slot.index % 2 === 0).map((slot) => {
+    const previous = observed[slot.index - 1];
+    const prior = observed[slot.index - 2];
+    const recentChange = previous - prior;
+    const predicted = Math.max(0, previous + recentChange * 0.5);
+    const baseline = Math.max(0, previous);
+    const intervalRadius = Math.max(0.5, predicted * 0.22, Math.abs(recentChange) * 1.5);
+    return {
+      slot: slot.index,
+      label: slot.start,
+      observedKW: round(observed[slot.index]),
+      predictedKW: round(predicted),
+      baselineKW: round(baseline),
+      lowerKW: round(Math.max(0, predicted - intervalRadius)),
+      upperKW: round(predicted + intervalRadius),
+    };
   });
-  return evaluateForecast(points, "simulation", "Deterministic replay (no public observation loaded)", "This offline replay demonstrates the evaluation method. Load the public observation source to report measured forecast error.");
+  return evaluateForecast(points, "simulation", "Causal deterministic replay (no public observation loaded)", "This offline replay predicts each target from earlier simulated observations only. Load the public observation source to report measured forecast error.");
 }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { evaluateForecast, metrics } from "./evaluation";
+import { createSyntheticForecast } from "./synthetic";
+import { createReplayEvaluation, evaluateForecast, metrics } from "./evaluation";
 
 describe("forecast evaluation", () => {
   it("reports error, baseline and uncertainty coverage", () => {
@@ -16,5 +17,16 @@ describe("forecast evaluation", () => {
 
   it("does not divide MAPE by zero", () => {
     expect(metrics([{ observedKW: 0, predictedKW: 1, lowerKW: 0, upperKW: 2 }]).mapePercent).toBeNull();
+  });
+
+  it("keeps the offline replay causal when the held-out target changes", () => {
+    const forecast = createSyntheticForecast();
+    const changedTarget = forecast.map((slot) => slot.index === 2 ? { ...slot, renewableKW: slot.renewableKW + 20 } : slot);
+    const originalPoint = createReplayEvaluation(forecast).points.find((point) => point.slot === 2)!;
+    const changedPoint = createReplayEvaluation(changedTarget).points.find((point) => point.slot === 2)!;
+
+    expect(changedPoint.observedKW).not.toBe(originalPoint.observedKW);
+    expect(changedPoint.predictedKW).toBe(originalPoint.predictedKW);
+    expect(changedPoint.baselineKW).toBe(originalPoint.baselineKW);
   });
 });

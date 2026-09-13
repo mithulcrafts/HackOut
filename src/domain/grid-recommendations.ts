@@ -15,11 +15,23 @@ function acceptedIds(scenario: Scenario) {
 function movableCapacity(scenario: Scenario, slot: number, effective: ScheduleEntry[]): { powerKW: number; activityCount: number } {
   const accepted = acceptedIds(scenario);
   const candidates = scenario.activities.filter((activity) => {
-    if (accepted.has(activity.id)) return false;
+    if (accepted.has(activity.id) || activity.status !== "recommended") return false;
     const power = activityPowerKW(activity);
     if (power <= 0 || slot < activity.earliestStart || slot + activity.durationSlots > activity.latestFinish) return false;
+    const matchingEvent = scenario.events.some((event) =>
+      event.status === "active"
+      && event.objective === "absorb"
+      && event.eligibleActivityTypes.includes(activity.type)
+      && slot >= event.windowStart
+      && slot + activity.durationSlots <= event.windowEnd,
+    );
+    if (!matchingEvent) return false;
     return Array.from({ length: activity.durationSlots }, (_, offset) => scenario.forecast[slot + offset]).every((forecastSlot) =>
-      forecastSlot && forecastSlot.fixedDemandKW + effective.filter((entry) => entry.activityId !== activity.id && entry.accepted && forecastSlot.index >= entry.startSlot && forecastSlot.index < entry.endSlot).reduce((sum, entry) => sum + entry.powerKW, 0) + power <= scenario.sitePowerLimitKW,
+      forecastSlot && (() => {
+        const existing = effective.filter((entry) => entry.activityId !== activity.id && entry.accepted && forecastSlot.index >= entry.startSlot && forecastSlot.index < entry.endSlot).reduce((sum, entry) => sum + entry.powerKW, 0);
+        const demandWithCandidate = forecastSlot.fixedDemandKW + existing + power;
+        return demandWithCandidate <= scenario.sitePowerLimitKW && demandWithCandidate <= forecastSlot.renewableKW;
+      })(),
     );
   });
   // Reserve candidate windows greedily so overlapping activities cannot be counted twice.
@@ -29,7 +41,9 @@ function movableCapacity(scenario: Scenario, slot: number, effective: ScheduleEn
     const legal = Array.from({ length: activity.durationSlots }, (_, offset) => {
       const index = slot + offset;
       const existing = effective.filter((entry) => entry.activityId !== activity.id && entry.accepted && index >= entry.startSlot && index < entry.endSlot).reduce((sum, entry) => sum + entry.powerKW, 0);
-      return scenario.forecast[index] && scenario.forecast[index].fixedDemandKW + existing + (used.get(index) ?? 0) + power <= scenario.sitePowerLimitKW;
+      const forecastSlot = scenario.forecast[index];
+      const demandWithCandidate = forecastSlot && forecastSlot.fixedDemandKW + existing + (used.get(index) ?? 0) + power;
+      return Boolean(forecastSlot && demandWithCandidate <= scenario.sitePowerLimitKW && demandWithCandidate <= forecastSlot.renewableKW);
     }).every(Boolean);
     if (legal) for (let index = slot; index < slot + activity.durationSlots; index++) used.set(index, (used.get(index) ?? 0) + power);
     return legal;

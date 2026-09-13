@@ -37,4 +37,22 @@ describe("rankGridRecommendations", () => {
     expect(results.filter((item) => item.action === "import_backup_review")).toHaveLength(0);
     expect(results.some((item) => item.caveats.some((caveat) => caveat.includes("site overload")))).toBe(true);
   });
+
+  it.each(["skipped", "completed", "verified", "failed", "paused"] as const)("does not count a %s activity as movable flexibility", (status) => {
+    const scenario = createDemoScenario();
+    scenario.activities = scenario.activities.map((activity) => ({ ...activity, status }));
+    const results = rankGridRecommendations(scenario, 26);
+    expect(results.some((item) => item.action === "shift_demand")).toBe(false);
+  });
+
+  it("requires a matching active event and a renewable-safe full activity window", () => {
+    const scenario = createDemoScenario();
+    scenario.activities = scenario.activities.map((activity, index) => ({ ...activity, status: index === 0 ? "recommended" as const : "paused" as const }));
+    scenario.events = scenario.events.map((event) => ({ ...event, eligibleActivityTypes: ["water_heater"] }));
+    expect(rankGridRecommendations(scenario, 26).some((item) => item.action === "shift_demand")).toBe(false);
+
+    scenario.events = scenario.events.map((event) => ({ ...event, eligibleActivityTypes: ["ev"] }));
+    scenario.forecast = scenario.forecast.map((slot) => slot.index === 27 ? { ...slot, renewableKW: 0, solarKW: 0, windKW: 0 } : slot);
+    expect(rankGridRecommendations(scenario, 26).some((item) => item.action === "shift_demand")).toBe(false);
+  });
 });

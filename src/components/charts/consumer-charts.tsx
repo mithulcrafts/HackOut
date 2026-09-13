@@ -22,7 +22,7 @@ import type { scheduleSeries, HistoryEntry } from "@/lib/consumer-metrics";
 import { slotTime } from "@/lib/consumer";
 
 type SeriesRow = { time: string; [key: string]: string | number };
-type ChartSeries = { key: string; name: string; color: string };
+type ChartSeries = { key: string; name: string; color: string; strokeDasharray?: string };
 type ChartCurve = "monotone" | "stepAfter";
 type HighlightWindow = { start: string; end: string };
 
@@ -102,6 +102,7 @@ function Plot({
           dataKey={item.key}
           name={item.name}
           stroke={item.color}
+          strokeDasharray={item.strokeDasharray}
           dot={false}
           activeDot={{ r: 4, strokeWidth: 2, fill: "var(--surface)" }}
           strokeWidth={item.key === "renewableKW" ? 2.8 : 2.2}
@@ -255,7 +256,7 @@ export function RenewableOutlook({
 }
 
 export function ScheduleChart({ rows }: { rows: ReturnType<typeof scheduleSeries> }) {
-  return <article className="schedule-card"><h2>Your load schedule</h2><p>Usual versus accepted power across the day. Block edges represent discrete half-hour operating intervals.</p>{rows.length ? <Plot data={rows} unit="kW" caption="planned dispatch · half-hour intervals · IST" ariaLabel="Usual and accepted load schedule in kilowatts" curve="stepAfter" series={[{ key: "baseline", name: "Usual", color: "var(--muted)" }, { key: "accepted", name: "Accepted", color: "var(--blue)" }]} /> : <p>Accept an offer to see its schedule.</p>}</article>;
+  return <article className="schedule-card"><h2>Your load schedule</h2><p>Usual, proposed and accepted power across the day. The proposed window is what you can choose; Accepted appears only after you accept it. Block edges represent discrete half-hour operating intervals.</p>{rows.length ? <Plot data={rows} unit="kW" caption="planned dispatch · half-hour intervals · IST" ariaLabel="Usual, proposed and accepted load schedule in kilowatts" curve="stepAfter" series={[{ key: "baseline", name: "Usual", color: "var(--muted)" }, { key: "proposed", name: "Proposed", color: "var(--amber)", strokeDasharray: "6 4" }, { key: "accepted", name: "Accepted", color: "var(--blue)" }]} /> : <p>Load a recommendation to see the proposed schedule.</p>}</article>;
 }
 
 export function VerificationHistoryChart({ history }: { history: HistoryEntry[] }) {

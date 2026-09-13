@@ -17,12 +17,13 @@ export function activityToDomain(activity: SavedActivity): DomainActivity | null
   const power = Number(activity.power_kw ?? preset?.power ?? NaN);
   const energy = Number(activity.required_kwh ?? power * durationSlots * 0.5);
   if (![start, finish, baseline, durationSlots].every(Number.isInteger) || start < 0 || finish > 48 || durationSlots <= 0 || start + durationSlots > finish || baseline < start || baseline + durationSlots > finish || !Number.isFinite(power) || power <= 0 || power > 500 || !Number.isFinite(energy) || energy <= 0 || energy > power * durationSlots * 0.5) return null;
-  const statuses: DomainActivity["status"][] = ["recommended", "accepted", "skipped", "completed", "verified", "failed"];
+  const statuses: DomainActivity["status"][] = ["recommended", "accepted", "skipped", "completed", "verified", "failed", "paused"];
   return { id: activity.id, name: activity.name, type: activityTypeMap[activity.type as keyof typeof activityTypeMap] ?? "custom", requiredEnergyKWh: energy, earliestStart: start, latestFinish: finish, powerLimitKW: power, durationSlots, interruptible: activity.interruptible, baselineStart: baseline, status: statuses.includes(activity.status as DomainActivity["status"]) ? activity.status as DomainActivity["status"] : "recommended" };
 }
 
 export function scheduleSavedActivities(activities: SavedActivity[], scenario: Scenario) {
   return activities.map((activity) => {
+    if (activity.status === "paused") return { activityId: activity.id, startSlot: null, endSlot: null, powerKW: 0, source: "simulation", reason: "Participation is paused. Resume this activity when you want a new recommendation." };
     const domain = activityToDomain(activity);
     const unavailable = (reason: string) => ({ activityId: activity.id, startSlot: null, endSlot: null, powerKW: 0, source: "simulation", reason });
     if (!domain) return unavailable("Complete valid half-hour timing and equipment power before scheduling.");

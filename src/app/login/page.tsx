@@ -23,7 +23,7 @@ export default function LoginPage() {
         : await supabase.auth.signUp({ email, password });
       if (result.error) throw result.error;
       setMessage(mode === "sign-in" ? "Signed in. Your consumer dashboard is ready." : "Account created.");
-      if (result.data.session) router.push("/consumer/activities");
+      if (result.data.session) router.push("/consumer/onboarding");
     } catch (error) { setMessage(error instanceof Error ? error.message : "Unable to complete authentication."); }
     finally { setBusy(false); }
   }

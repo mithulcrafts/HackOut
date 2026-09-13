@@ -1,6 +1,6 @@
 export type DataSource = "simulation" | "weather_estimate" | "device_reading";
 export type ActivityType = "ev" | "water_heater" | "industrial_process" | "washing_machine" | "dishwasher" | "irrigation_pump" | "pool_pump" | "cold_storage" | "e_bike" | "custom";
-export type ActivityStatus = "recommended" | "accepted" | "skipped" | "completed" | "verified" | "failed";
+export type ActivityStatus = "recommended" | "accepted" | "skipped" | "completed" | "verified" | "failed" | "paused";
 export type OfferDecision = "pending" | "accept" | "modify" | "skip" | "override";
 export type Mode = "absorb" | "protect";
 export type EventObjective = "absorb" | "protect";
@@ -94,6 +94,9 @@ export interface DemandResponseEvent {
   windowEnd: number;
   requestedFlexibilityKW: number;
   eligibleActivityTypes: ActivityType[];
+  participantGroup?: string;
+  minParticipants?: number;
+  maxParticipants?: number;
   rewardRatePerKWh: number;
   budget: number;
   offerExpiresAt: string;

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { Activity, BalanceResult, ForecastSlot, VerificationResult } from "@/domain/types";
+import { OperatorNav } from "./operator-nav";
 
 type PlaybackOutcome = "success" | "partial" | "late" | "missing" | "rebound";
 const outcomes: { value: PlaybackOutcome; label: string }[] = [
@@ -64,7 +65,7 @@ export function SimulationConsole({ activities, forecast }: { activities: Activi
   const visibleForecast = preview?.forecast ?? forecast;
   const visibleBalances = preview?.balances;
   return <main className="shell">
-    <header className="topbar"><div className="container topbar-inner"><Link href="/" className="brand"><span className="brand-mark">VS</span>VidyutSutra</Link><Link className="muted" href="/operator/overview">← Overview</Link></div></header>
+    <header className="topbar"><div className="container topbar-inner"><Link href="/" className="brand"><span className="brand-mark">VS</span>VidyutSutra</Link><OperatorNav active="/operator/simulation" /></div></header>
     <div className="container" style={{ paddingTop: 40 }}>
       <div className="eyebrow">Simulation controls</div><h1>Replay the demand-response day.</h1>
       <p className="muted">Adjust supply or demand in an in-memory scenario, then test an accepted activity with simulated meter evidence. No device or grid command is sent.</p>

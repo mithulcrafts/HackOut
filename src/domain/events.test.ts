@@ -34,6 +34,33 @@ describe("event orchestration", () => {
     expect(report.funnel.verified).toBe(0);
   });
 
+  it("counts verification and shifted energy from the offer-keyed result", () => {
+    const scenario = createDemoScenario();
+    const published = publishEvent({ ...scenario, events: scenario.events.map((event) => ({ ...event, status: "draft" as const })) }, "event-absorb-demo");
+    const offer = published.offers[0];
+    const accepted = decideOffer(published, offer.id, "accept");
+    const withResult = {
+      ...accepted,
+      results: {
+        [offer.id]: {
+          activityId: offer.activityId,
+          outcome: "verified" as const,
+          requiredEnergyKWh: 8,
+          recordedEnergyKWh: 8,
+          eligibleShiftedKWh: 8,
+          acceptedWindow: { startSlot: offer.proposedStart, endSlot: offer.proposedEnd },
+          reason: "Reading matched the accepted window.",
+          data_source: "simulation" as const,
+          createdAt: "2026-09-12T16:00:00+05:30",
+        },
+      },
+    };
+    const report = eventReport(withResult, offer.eventId);
+    expect(report.funnel.verified).toBe(1);
+    expect(report.shiftedKWh).toBe(8);
+    expect(report.verifiedKW).toBe(4);
+  });
+
   it("supports a version-checked modify decision", () => {
     const base = eventScenario("absorb");
     const scenario = publishEvent({ ...base, events: [{ ...base.events[0], windowEnd: 34 }] }, base.events[0].id);
@@ -94,6 +121,19 @@ describe("event orchestration", () => {
     const scenario = eventScenario("absorb");
     const underfunded = { ...scenario, events: [{ ...scenario.events[0], budget: 11 }] };
     expect(publishEvent(underfunded, underfunded.events[0].id).offers).toHaveLength(0);
+  });
+
+  it("respects an event maximum participation cap", () => {
+    const scenario = eventScenario("absorb");
+    const capped = { ...scenario, activities: [scenario.activities[0], { ...scenario.activities[0], id: "second-activity", name: "Second load", baselineStart: 20 }] , events: [{ ...scenario.events[0], maxParticipants: 1 }], schedules: scenario.schedules.map((schedule) => schedule.activityId === scenario.activities[0].id ? schedule : { ...schedule, activityId: "second-activity" }) };
+    expect(publishEvent(capped, capped.events[0].id).offers).toHaveLength(1);
+  });
+
+  it("does not publish offers for paused activities", () => {
+    const scenario = createDemoScenario();
+    const paused = { ...scenario, activities: scenario.activities.map((activity, index) => index === 0 ? { ...activity, status: "paused" as const } : activity), offers: [], events: scenario.events.map((event) => ({ ...event, status: "draft" as const })) };
+    const published = publishEvent(paused, "event-absorb-demo");
+    expect(published.offers.some((offer) => offer.activityId === paused.activities[0].id)).toBe(false);
   });
 
   it("rechecks the active event, budget and capacity at acceptance", () => {

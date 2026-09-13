@@ -7,12 +7,14 @@ import { getScenario, setScenario, resetScenario } from "./demo-store";
 import { decideOffer } from "@/domain/events";
 import { recordSimulatedOffer, verifyScenarioOffer } from "@/domain/playback";
 import type { Scenario } from "@/domain/types";
-import { getDemoNotificationReads } from "./demo-preferences";
+import { getDemoNotificationReads, getDemoProfile } from "./demo-preferences";
 import { syncConsumerToOperator } from "./consumer-integration";
 
 export function demoNotifications(session: string, scenario: Scenario): ConsumerState["notifications"] {
   const reads = getDemoNotificationReads(session);
+  const profile = getDemoProfile(session);
   const notifications: ConsumerState["notifications"] = [];
+  const timeLabel = (slot: number) => `${String(Math.floor(slot / 2)).padStart(2, "0")}:${slot % 2 ? "30" : "00"}`;
   for (const offer of scenario.offers) {
     const activity = scenario.activities.find((item) => item.id === offer.activityId);
     const name = activity?.name ?? "Your flexible activity";
@@ -35,7 +37,14 @@ export function demoNotifications(session: string, scenario: Scenario): Consumer
     } else {
       id = `offer:${offer.id}:pending`; message = `A renewable-aligned time is available for ${name}. Review the offer and choose what works.`;
     }
+    const essential = offer.decision === "accept" || Boolean(result);
+    const quiet = profile.reminder_channel === "none" || profile.reminder_channel === "important_only" || profile.reminder_frequency === "important";
+    if (quiet && !essential) continue;
     notifications.push({ id, message, created_at: createdAt, read_at: reads.get(id) ?? null });
+    if (offer.decision === "accept" && !result) {
+      const reminderId = `offer:${offer.id}:deadline`;
+      notifications.push({ id: reminderId, message: `Reminder: complete ${name} before ${timeLabel(offer.deadline)} IST to keep the accepted window eligible.`, created_at: `${scenario.date}T12:00:00+05:30`, read_at: reads.get(reminderId) ?? null });
+    }
   }
   return notifications;
 }
@@ -67,9 +76,19 @@ export function demoState(session: string, scenario: Scenario, selectedOfferId?:
   }
   const outlook = scenario.forecast.map((slot) => ({ slot: slot.index, solarKW: slot.solarKW, windKW: slot.windKW, renewableKW: slot.renewableKW }));
   const completion = sourceReadings.find((item) => item.serviceComplete);
+  const allRewardEntries = demoRewardEntries(session);
+  const rewardSummary = {
+    verifiedRupees: Number(allRewardEntries.filter((entry) => entry.state === "verified" || entry.state === "redeemable").reduce((sum, entry) => sum + Number(entry.illustrative_rupees), 0).toFixed(2)),
+    pendingRupees: Number(allRewardEntries.filter((entry) => entry.state === "pending").reduce((sum, entry) => sum + Number(entry.illustrative_rupees), 0).toFixed(2)),
+    points: allRewardEntries.reduce((sum, entry) => sum + Number(entry.points), 0),
+  };
+  const upcoming = scenario.offers.map((item) => {
+    const linked = scenario.activities.find((candidate) => candidate.id === item.activityId);
+    return { id: item.id, name: linked?.name ?? "Flexible activity", proposed_start: item.proposedStart, duration_slots: item.proposedEnd - item.proposedStart, deadline_slot: item.deadline, decision: item.decision };
+  });
   return consumerView({
-    availableOffers: scenario.offers.map((item) => ({ id: item.id, name: scenario.activities.find((a) => a.id === item.activityId)?.name ?? "Activity", decision: item.decision })),
-    offer: offer ? { id: offer.id, name: activity?.name ?? "Flexible activity", version: offer.version, decision: offer.decision === "accept" ? "accepted" : offer.decision === "skip" ? "skipped" : offer.decision === "override" ? "overridden" : "pending", baseline_start: offer.originalStart, proposed_start: offer.proposedStart, duration_slots: offer.proposedEnd - offer.proposedStart, deadline_slot: offer.deadline, required_kwh: activity?.requiredEnergyKWh ?? 0, power_kw: activity ? activity.requiredEnergyKWh / (activity.durationSlots * .5) : 0, simulation_run: Boolean(scenario.simulatedOfferIds?.includes(offer.id) || sourceReadings.length), completion_slot: completion ? (Date.parse(completion.timestamp) - midnight) / 1800000 : null } : null,
+    availableOffers: scenario.offers.map((item) => ({ id: item.id, name: scenario.activities.find((a) => a.id === item.activityId)?.name ?? "Activity", decision: item.decision })), upcoming, rewardSummary,
+    offer: offer ? { id: offer.id, name: activity?.name ?? "Flexible activity", version: offer.version, decision: offer.decision === "accept" ? "accepted" : offer.decision === "skip" ? "skipped" : offer.decision === "override" ? "overridden" : "pending", baseline_start: offer.originalStart, proposed_start: offer.proposedStart, duration_slots: offer.proposedEnd - offer.proposedStart, deadline_slot: offer.deadline, required_kwh: activity?.requiredEnergyKWh ?? 0, power_kw: activity ? activity.requiredEnergyKWh / (activity.durationSlots * .5) : 0, simulation_run: Boolean(scenario.simulatedOfferIds?.includes(offer.id) || sourceReadings.length), completion_slot: completion ? (Date.parse(completion.timestamp) - midnight) / 1800000 : null, expires_at: offer.expiresAt } : null,
     readings, verification, rewards: demoRewardEntries(session).filter((entry) => entry.offer_id === offer?.id), notifications: demoNotifications(session, scenario),
   }, outlook, "Shared scenario simulation · solar + wind", { allowedStarts, rewardRate: event?.rewardRatePerKWh ?? 0, rewardCap: offer?.rewardEstimate ?? 0, objective: event?.objective ?? "absorb" });
 }

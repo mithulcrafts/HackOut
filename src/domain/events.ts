@@ -1,8 +1,8 @@
 import type { Activity, DemandResponseEvent, Offer, Scenario, ScheduleEntry } from "./types";
 import { activityPowerKW } from "./scheduling/engine";
 
-export function createEvent(input: Pick<DemandResponseEvent, "name" | "objective" | "windowStart" | "windowEnd" | "requestedFlexibilityKW" | "eligibleActivityTypes" | "rewardRatePerKWh" | "budget" | "offerExpiresAt">, id = "event-" + Date.now()): DemandResponseEvent {
-  return { ...input, id, status: "draft" };
+export function createEvent(input: Pick<DemandResponseEvent, "name" | "objective" | "windowStart" | "windowEnd" | "requestedFlexibilityKW" | "eligibleActivityTypes" | "participantGroup" | "minParticipants" | "maxParticipants" | "rewardRatePerKWh" | "budget" | "offerExpiresAt">, id = "event-" + Date.now()): DemandResponseEvent {
+  return { ...input, participantGroup: input.participantGroup ?? "All enrolled participants", minParticipants: input.minParticipants ?? 0, id, status: "draft" };
 }
 
 function overlapSlots(start: number, end: number, otherStart: number, otherEnd: number) {
@@ -66,7 +66,8 @@ export function publishEvent(scenario: Scenario, eventId: string): Scenario {
   let remainingBudget = event.budget;
 
   for (const activity of scenario.activities) {
-    if (!event.eligibleActivityTypes.includes(activity.type) || reservations.some((item) => item.activityId === activity.id) || ["completed", "verified", "failed"].includes(activity.status)) continue;
+    if (event.maxParticipants !== undefined && offers.length >= event.maxParticipants) break;
+    if (!event.eligibleActivityTypes.includes(activity.type) || reservations.some((item) => item.activityId === activity.id) || ["completed", "verified", "failed", "paused"].includes(activity.status)) continue;
     if (![activity.earliestStart, activity.latestFinish, activity.durationSlots].every(Number.isInteger) || activity.durationSlots <= 0 || activity.earliestStart < 0 || activity.latestFinish > scenario.forecast.length) continue;
     let best: { start: number; energy: number; score: number } | undefined;
     for (let start = activity.earliestStart; start + activity.durationSlots <= activity.latestFinish; start++) {
@@ -108,7 +109,9 @@ export function eventReport(scenario: Scenario, eventId: string) {
   const activityIds = new Set(offers.map((offer) => offer.activityId));
   const accepted = offers.filter((offer) => offer.status === "accepted").length;
   const acceptedOffers = offers.filter((offer) => offer.status === "accepted");
-  const resultFor = (offer: Offer) => scenario.results?.[offer.activityId];
+  // Playback stores results by offer id. Keep the activity-id fallback for
+  // older persisted snapshots created before offers became the ledger key.
+  const resultFor = (offer: Offer) => scenario.results?.[offer.id] ?? scenario.results?.[offer.activityId];
   const activityFor = (offer: Offer) => scenario.activities.find((activity) => activity.id === offer.activityId);
   const verified = acceptedOffers.filter((offer) => resultFor(offer)?.outcome === "verified" || (!resultFor(offer) && activityFor(offer)?.status === "verified")).length;
   const completed = acceptedOffers.filter((offer) => {
@@ -116,12 +119,23 @@ export function eventReport(scenario: Scenario, eventId: string) {
     return result ? ["verified", "partial", "failed"].includes(result.outcome) : ["completed", "verified", "failed"].includes(activityFor(offer)?.status ?? "");
   }).length;
   const acceptedKW = scenario.schedules.filter((schedule) => schedule.accepted && activityIds.has(schedule.activityId)).reduce((sum, schedule) => sum + schedule.powerKW, 0);
+  const verifiedOffers = acceptedOffers.filter((offer) => resultFor(offer)?.outcome === "verified");
+  const verifiedKW = verifiedOffers.reduce((sum, offer) => {
+    const result = resultFor(offer);
+    const activity = activityFor(offer);
+    const hours = activity ? activity.durationSlots * 0.5 : 0;
+    return sum + (result && hours > 0 ? result.eligibleShiftedKWh / hours : 0);
+  }, 0);
+  const shiftedKWh = verifiedOffers.reduce((sum, offer) => sum + (resultFor(offer)?.eligibleShiftedKWh ?? 0), 0);
+  const rewardCost = scenario.rewardLedger?.filter((entry) => offers.some((offer) => offer.id === entry.offerId)).reduce((sum, entry) => sum + entry.illustrativeRupees, 0) ?? 0;
+  const failed = acceptedOffers.filter((offer) => ["failed", "partial"].includes(resultFor(offer)?.outcome ?? "") || activityFor(offer)?.status === "failed").length;
+  const acceptanceRate = offers.length ? Number((accepted / offers.length * 100).toFixed(1)) : 0;
   const pendingReadings = acceptedOffers.filter((offer) => {
     const result = resultFor(offer);
     if (result) return result.outcome === "pending";
     return !scenario.readings.some((reading) => reading.eventId === eventId && reading.activityId === offer.activityId);
   }).length;
-  return { event, funnel: { recommended: offers.length, accepted, completed, verified }, acceptedKW, pendingReadings, data_source: "simulation" as const };
+  return { event, funnel: { recommended: offers.length, accepted, completed, verified }, acceptedKW: Number(acceptedKW.toFixed(2)), verifiedKW: Number(verifiedKW.toFixed(2)), shiftedKWh: Number(shiftedKWh.toFixed(2)), rewardCost: Number(rewardCost.toFixed(2)), failed, acceptanceRate, pendingReadings, data_source: "simulation" as const };
 }
 
 export function decideOffer(scenario: Scenario, offerId: string, decision: "accept" | "modify" | "skip" | "override", proposedStart?: number, expectedVersion?: number): Scenario {

@@ -2,6 +2,10 @@
 
 This repository contains the VidyutSutra HackOut prototype: a mobile-first Next.js application for coordinating flexible demand against estimated renewable availability. The current branch combines the deterministic Teammate A energy/operator track with the consumer authentication, activity, offer, simulated-reading, verification and reward flow.
 
+## Live deployment
+
+[Open the Vercel deployment](https://vidyutsutra-rohinths-projects-137795ca.vercel.app)
+
 ## Run locally
 
 ```bash

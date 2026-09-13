@@ -60,7 +60,13 @@ export function demoRewardEntries(session: string) {
 }
 
 export function demoState(session: string, scenario: Scenario, selectedOfferId?: string) {
-  const offer = (selectedOfferId ? scenario.offers.find((item) => item.id === selectedOfferId) : scenario.offers[0]) ?? null;
+  // Keep an explicitly selected offer stable. When Today is opened without an
+  // offerId, prefer a committed offer so the schedule reflects the user's
+  // latest choice instead of silently falling back to the first pending offer.
+  const defaultOffer = scenario.offers.find((item) => item.decision === "accept")
+    ?? scenario.offers.find((item) => ["pending", "modify"].includes(item.decision))
+    ?? scenario.offers[0];
+  const offer = (selectedOfferId ? scenario.offers.find((item) => item.id === selectedOfferId) : defaultOffer) ?? null;
   const activity = offer ? scenario.activities.find((item) => item.id === offer.activityId) : undefined;
   const event = offer ? scenario.events.find((item) => item.id === offer.eventId) : undefined;
   const midnight = Date.parse(`${scenario.date}T00:00:00+05:30`);

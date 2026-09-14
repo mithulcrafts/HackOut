@@ -312,11 +312,3 @@ Every value is labelled by provenance:
 
 Live utility data, production-trained site models, trusted hardware adapters, regulated grid control and payment settlement require provider agreements and deployment controls beyond this prototype. The interfaces are designed so those capabilities can be added without changing the core promise.
 
----
-
-## Team
-
-**Commit Crew**<br>
-Nama Mithul · Rohinth S
-
-HackOut’26 · DA-IICT / Dhirubhai Ambani University · Gandhinagar, Gujarat
